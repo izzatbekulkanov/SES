@@ -1,0 +1,47 @@
+from django.urls import path
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+from .views import (
+    auth_me,
+    change_password,
+    admin_users,
+    admin_reset_password,
+    admin_teacher_stats,
+    teacher_courses,
+    teacher_students,
+    course_add_student,
+    toggle_lesson,
+    generate_certificate,
+    verify_certificate,
+    student_progress,
+    admin_all_certificates
+)
+
+urlpatterns = [
+    # Auth
+    path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/me/', auth_me, name='auth_me'),
+    path('auth/change-password/', change_password, name='change_password'),
+    
+    # Admin User management
+    path('admin/users/', admin_users, name='admin_users'),
+    path('admin/reset-password/', admin_reset_password, name='admin_reset_password'),
+    path('admin/teacher-stats/', admin_teacher_stats, name='admin_teacher_stats'),
+    path('admin/certificates/', admin_all_certificates, name='admin_all_certificates'),
+    
+    # Teacher operations
+    path('teacher/courses/', teacher_courses, name='teacher_courses'),
+    path('teacher/courses/<int:course_id>/add-student/', course_add_student, name='course_add_student'),
+    path('teacher/students/', teacher_students, name='teacher_students'),
+    path('teacher/students/<int:student_id>/toggle-lesson/', toggle_lesson, name='toggle_lesson'),
+    path('teacher/students/<int:student_id>/generate-certificate/', generate_certificate, name='generate_certificate'),
+    
+    # Student operations
+    path('student/progress/', student_progress, name='student_progress'),
+    
+    # Public verification
+    path('certificates/verify/<str:certificate_id>/', verify_certificate, name='verify_certificate'),
+]
