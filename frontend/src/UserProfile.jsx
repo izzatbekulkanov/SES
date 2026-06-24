@@ -32,7 +32,7 @@ export default function UserProfile({ onClose }) {
     setLoading(true)
 
     try {
-      const response = await fetch('https://shahar-ses.uz/api/auth/change-password/', {
+      const response = await fetch('/api/auth/change-password/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

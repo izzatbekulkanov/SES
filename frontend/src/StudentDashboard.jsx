@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'https://shahar-ses.uz/api'
+const API = '/api'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -40,7 +40,7 @@ const IC = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `https://shahar-ses.uz${url}`
+  return `${window.location.origin}${url}`
 }
 
 
@@ -212,14 +212,16 @@ export default function StudentDashboard() {
               <button 
                 onClick={() => setShowProfile(true)}
                 className="bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 text-slate-700 hover:text-violet-700 text-xs px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5"
+                title={t.changePassword}
               >
-                <Icon d={IC.profile} size={13} /> {t.changePassword}
+                <Icon d={IC.profile} size={13} /> <span className="hidden sm:inline">{t.changePassword}</span>
               </button>
               <button 
                 onClick={handleLogout}
                 className="bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-red-600 text-xs px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5"
+                title={lang === 'ru' ? 'Выйти' : 'Chiqish'}
               >
-                <Icon d={IC.logout} size={13} /> Chiqish
+                <Icon d={IC.logout} size={13} /> <span className="hidden sm:inline">{lang === 'ru' ? 'Выйти' : 'Chiqish'}</span>
               </button>
             </div>
           </div>
@@ -227,7 +229,7 @@ export default function StudentDashboard() {
       </nav>
 
       {/* Main Layout Grid */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-6 overflow-hidden">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-6 overflow-y-auto lg:overflow-hidden">
         
         {/* LEFT COLUMN: Full Student Profile Info */}
         <div className="w-full lg:w-80 shrink-0 flex flex-col gap-6">
@@ -320,7 +322,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* RIGHT COLUMN: Courses division (ongoing and completed) */}
-        <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-1">
+        <div className="flex-1 flex flex-col gap-6 lg:overflow-y-auto pr-1">
           {error && (
             <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100 text-xs font-semibold shrink-0">
               {error}
@@ -556,7 +558,7 @@ export default function StudentDashboard() {
 
                   {/* Footer verification text */}
                   <p className="text-[7px] text-[#e8c97a] opacity-80 pt-1.5 font-mono">
-                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: https://shahar-ses.uz/verify/{previewCert.certificate_id}
+                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: {window.location.origin}/verify/{previewCert.certificate_id}
                   </p>
                 </div>
               </div>

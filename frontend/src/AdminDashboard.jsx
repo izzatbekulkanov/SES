@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'https://shahar-ses.uz/api'
+const API = '/api'
 const PAGE_SIZE = 50
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ const ICONS = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `https://shahar-ses.uz${url}`
+  return `${window.location.origin}${url}`
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -596,22 +596,24 @@ export default function AdminDashboard() {
             <Avatar src={user.profile_picture} name={`${user.first_name} ${user.last_name}`} role="ADMIN" />
           </div>
           <button onClick={() => setShowProfile(true)}
+            title={t.profile}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-violet-600 bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 px-3 py-1.5 rounded-lg font-semibold transition">
             <Icon d={ICONS.profile} size={13} />
-            {t.profile}
+            <span className="hidden sm:inline">{t.profile}</span>
           </button>
           <button onClick={handleLogout}
+            title={t.logout}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg font-semibold transition">
             <Icon d={ICONS.logout} size={13} />
-            {t.logout}
+            <span className="hidden sm:inline">{t.logout}</span>
           </button>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden pb-16 md:pb-0">
 
         {/* ── Sidebar ── */}
-        <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col py-4 px-3 gap-1 shadow-sm overflow-y-auto">
+        <aside className="hidden md:flex w-64 shrink-0 bg-white border-r border-slate-200 flex-col py-4 px-3 gap-1 shadow-sm overflow-y-auto">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">{t.controlPanel}</p>
 
           {navItems.map(item => {
@@ -641,7 +643,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* ── Main ── */}
-        <main className="flex-1 flex flex-col overflow-hidden p-5 gap-4 overflow-y-auto">
+        <main className="flex-1 flex flex-col p-3 md:p-5 gap-4 overflow-y-auto pb-20 md:pb-5">
 
           {/* ── Summary Stat Cards ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
@@ -810,7 +812,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 mt-5 pt-4 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-100">
                   <button type="submit" disabled={formLoading}
                     className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition">
                     {formLoading ? 'Yaratilmoqda...' : `${role === 'ADMIN' ? 'Admin' : t.roleTeacher}ni yaratish`}
@@ -829,7 +831,7 @@ export default function AdminDashboard() {
           {isUserSection && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden p-5">
               {/* Header */}
-              <div className="flex items-center justify-between mb-4 shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 shrink-0">
                 <div>
                   <h2 className="font-bold text-slate-900 text-lg">
                     {section === 'students' ? t.students : section === 'teachers' ? t.teachers : t.admins}
@@ -1349,7 +1351,7 @@ export default function AdminDashboard() {
 
                   {/* Footer verification text */}
                   <p className="text-[7px] text-[#e8c97a] opacity-80 pt-1.5 font-mono">
-                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: https://shahar-ses.uz/verify/{previewCert.certificate_id}
+                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: {window.location.origin}/verify/{previewCert.certificate_id}
                   </p>
                 </div>
               </div>
@@ -1375,6 +1377,30 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around z-45 px-2 shadow-lg">
+        {navItems.map(item => {
+          const isActive = section === item.id
+          const cc = colorConfig[item.color]
+          return (
+            <button key={item.id}
+              onClick={() => { changeSection(item.id); setUserSearch(''); setUserPage(1); setError(''); setSuccessMsg('') }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-semibold transition-all duration-150 relative ${
+                isActive ? 'text-violet-600' : 'text-slate-500'
+              }`}
+            >
+              <Icon d={item.icon} size={18} className={isActive ? 'text-violet-600' : 'text-slate-400'} />
+              <span className="mt-1 text-[8px] truncate max-w-[56px]">{item.label}</span>
+              {item.count !== null && (
+                <span className="absolute top-0.5 right-3 text-[8px] font-bold px-1 bg-red-500 text-white rounded-full">
+                  {item.count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
 
       {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
 

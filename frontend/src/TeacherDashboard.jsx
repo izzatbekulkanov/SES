@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'https://shahar-ses.uz/api'
+const API = '/api'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -40,7 +40,7 @@ const IC = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `https://shahar-ses.uz${url}`
+  return `${window.location.origin}${url}`
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
@@ -230,7 +230,11 @@ export default function TeacherDashboard() {
       if (r.ok) {
         const data = await r.json()
         setCourses(data)
-        if (data.length > 0 && !selectedCourse) setSelectedCourse(data[0])
+        if (data.length > 0 && !selectedCourse) {
+          if (window.innerWidth >= 768) {
+            setSelectedCourse(data[0])
+          }
+        }
       } else if (r.status === 401) navigate('/login')
     } catch { /* silent */ }
     finally { setLoadingCourses(false) }
@@ -571,20 +575,22 @@ export default function TeacherDashboard() {
             <Avatar src={user.profile_picture} name={`${user.first_name} ${user.last_name}`} />
           </div>
           <button onClick={() => setShowProfile(true)}
+            title={lang === 'ru' ? 'Профиль' : 'Profil'}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-violet-600 bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 px-3 py-1.5 rounded-lg font-semibold transition">
-            <Icon d={IC.profile} size={13} /> {lang === 'ru' ? 'Профиль' : 'Profil'}
+            <Icon d={IC.profile} size={13} /> <span className="hidden sm:inline">{lang === 'ru' ? 'Профиль' : 'Profil'}</span>
           </button>
           <button onClick={handleLogout}
+            title={lang === 'ru' ? 'Выйти' : 'Chiqish'}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg font-semibold transition">
-            <Icon d={IC.logout} size={13} /> {lang === 'ru' ? 'Выйти' : 'Chiqish'}
+            <Icon d={IC.logout} size={13} /> <span className="hidden sm:inline">{lang === 'ru' ? 'Выйти' : 'Chiqish'}</span>
           </button>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden pb-16 md:pb-0">
 
         {/* ── Sidebar ── */}
-        <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col py-4 px-3 gap-1 shadow-sm">
+        <aside className="hidden md:flex w-56 shrink-0 bg-white border-r border-slate-200 flex-col py-4 px-3 gap-1 shadow-sm">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">
             {lang === 'ru' ? 'Панель учителя' : "O'qituvchi paneli"}
           </p>
@@ -614,13 +620,15 @@ export default function TeacherDashboard() {
         </aside>
 
         {/* ── Main Content ── */}
-        <main className="flex-1 flex overflow-hidden p-5 gap-5">
+        <main className="flex-1 flex flex-col md:flex-row overflow-hidden p-3 md:p-5 gap-3 md:gap-5">
 
           {/* ══ COURSES SECTION ══ */}
           {section === 'courses' && (
             <>
               {/* Course list panel */}
-              <div className="w-72 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+              <div className={`w-full md:w-72 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden ${
+                selectedCourse ? 'hidden md:flex' : 'flex'
+              }`}>
                 <div className="p-4 border-b border-slate-100">
                   <h2 className="font-bold text-slate-900 text-sm">Dars kurslari</h2>
                   <p className="text-[11px] text-slate-400 mt-0.5">{courses.length} ta kurs</p>
@@ -659,7 +667,9 @@ export default function TeacherDashboard() {
               </div>
 
               {/* Course detail / student panel */}
-              <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+              <div className={`flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden ${
+                !selectedCourse ? 'hidden md:flex' : 'flex'
+              }`}>
                 {selectedStudent && selectedCourse ? (
                   /* ── Student detail: two-step flow ── */
                   <div className="flex-1 flex flex-col overflow-hidden">
@@ -858,8 +868,12 @@ export default function TeacherDashboard() {
                 ) : selectedCourse ? (
                   /* Course detail — enrolled students table */
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="p-5 border-b border-slate-100 shrink-0">
-                      <div className="flex items-start justify-between gap-4">
+                    <div className="p-3 md:p-5 border-b border-slate-100 shrink-0">
+                      <button onClick={() => setSelectedCourse(null)}
+                        className="md:hidden flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-3.5 font-semibold transition">
+                        <Icon d={IC.back} size={13} /> {lang === 'ru' ? 'Назад к списку' : 'Kurslar ro\'yxatiga qaytish'}
+                      </button>
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div>
                           <h1 className="text-xl font-bold text-slate-900">{selectedCourse.title}</h1>
                           <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2 text-xs text-slate-500">
@@ -1718,7 +1732,7 @@ export default function TeacherDashboard() {
 
                   {/* Footer verification text */}
                   <p className="text-[7px] text-[#e8c97a] opacity-80 pt-1.5 font-mono">
-                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: https://shahar-ses.uz/verify/{previewCert.certificate_id}
+                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: {window.location.origin}/verify/{previewCert.certificate_id}
                   </p>
                 </div>
               </div>
@@ -1742,6 +1756,32 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around z-40 px-2 shadow-lg">
+        {navItems.map(item => {
+          const isActive = section === item.id
+          const cc = colorConfig[item.color]
+          return (
+            <button key={item.id}
+              onClick={() => { changeSection(item.id); setSelectedStudent(null) }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-semibold transition-all duration-150 relative ${
+                isActive ? 'text-violet-600' : 'text-slate-500'
+              }`}
+            >
+              <Icon d={item.icon} size={18} className={isActive ? 'text-violet-600' : 'text-slate-400'} />
+              <span className="mt-1 text-[9px]">{item.label}</span>
+              {item.count !== null && (
+                <span className={`absolute top-1 right-5 text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-violet-600 text-white' : cc.pill
+                }`}>
+                  {item.count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
 
       {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
 

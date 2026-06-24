@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const API = 'https://shahar-ses.uz/api'
+const API = '/api'
 
 // Simple icon
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -525,7 +525,7 @@ export default function Login() {
                             </button>
                             {cert.pdf_file && (
                               <a
-                                href={cert.pdf_file.startsWith('http') ? cert.pdf_file : `https://shahar-ses.uz${cert.pdf_file}`}
+                                href={cert.pdf_file.startsWith('http') ? cert.pdf_file : `${window.location.origin}${cert.pdf_file}`}
                                 target="_blank" rel="noreferrer"
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-slate-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition"
                               >

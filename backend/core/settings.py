@@ -20,10 +20,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-te6@w^1pn=hty1rphdvlh02l@%buntlm669b2vpoz)sl4*vbs5'
+SECRET_KEY = 'm01!v-6h2+^o(mfhc7o^t#zbieci&qz52=)-!dir1x_cnw&4b0'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -146,3 +146,5 @@ SIMPLE_JWT = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+
+STATIC_ROOT = BASE_DIR / 'static'
