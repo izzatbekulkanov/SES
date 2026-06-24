@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://127.0.0.1:8000${url}`
+  return `https://shahar-ses.uz${url}`
 }
 
 const t = {
@@ -61,7 +61,7 @@ export default function VerifyCertificate() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/certificates/verify/${certificateId}/`)
+      const response = await fetch(`https://shahar-ses.uz/api/certificates/verify/${certificateId}/`)
       if (response.ok) {
         const data = await response.json()
         setCertData(data)

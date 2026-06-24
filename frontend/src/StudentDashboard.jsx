@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'http://127.0.0.1:8000/api'
+const API = 'https://shahar-ses.uz/api'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -40,7 +40,7 @@ const IC = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://127.0.0.1:8000${url}`
+  return `https://shahar-ses.uz${url}`
 }
 
 

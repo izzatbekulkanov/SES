@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'http://localhost:8000/api'
+const API = 'https://shahar-ses.uz/api'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -40,7 +40,7 @@ const IC = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://localhost:8000${url}`
+  return `https://shahar-ses.uz${url}`
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
@@ -1718,7 +1718,7 @@ export default function TeacherDashboard() {
 
                   {/* Footer verification text */}
                   <p className="text-[7px] text-[#e8c97a] opacity-80 pt-1.5 font-mono">
-                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: http://localhost:5173/verify/{previewCert.certificate_id}
+                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: https://shahar-ses.uz/verify/{previewCert.certificate_id}
                   </p>
                 </div>
               </div>
