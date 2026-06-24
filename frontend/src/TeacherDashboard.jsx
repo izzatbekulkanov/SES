@@ -359,6 +359,70 @@ export default function TeacherDashboard() {
     finally { setSfLoading(false) }
   }
 
+  // ── Excel import/export ──────────────────────────────────────────────────
+  const [importingExcel, setImportingExcel] = useState(false)
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const r = await fetch(`${API}/teacher/courses/download-template/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (r.ok) {
+        const blob = await r.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'ses_oquvchilar_shablon.xlsx'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } else {
+        setToast('⚠ Shablon yuklashda xatolik.')
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast('⚠ Serverga ulanishda xatolik.')
+      setTimeout(() => setToast(''), 4500)
+    }
+  }
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    setImportingExcel(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    
+    try {
+      const r = await fetch(`${API}/teacher/courses/${selectedCourse.id}/import-excel/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd
+      })
+      const data = await r.json()
+      if (r.ok) {
+        setToast(`✓ ${data.detail || 'O\'quvchilar muvaffaqiyatli import qilindi.'}`)
+        setTimeout(() => setToast(''), 4500)
+        await fetchCourses()
+        await fetchStudents()
+        const list = await (await fetch(`${API}/teacher/courses/`, { headers: { Authorization: `Bearer ${token}` } })).json()
+        setCourses(list)
+        const upd = list.find(c => c.id === selectedCourse.id)
+        if (upd) setSelectedCourse(upd)
+      } else {
+        setToast(`⚠ ${data.detail || 'Faylni yuklashda xatolik.'}`)
+        setTimeout(() => setToast(''), 5500)
+      }
+    } catch {
+      setToast('⚠ Serverga ulanishda xatolik.')
+      setTimeout(() => setToast(''), 4500)
+    } finally {
+      setImportingExcel(false)
+      e.target.value = ''
+    }
+  }
+
   // ── Generate certificate ──────────────────────────────────────────────────
   const [certLoading, setCertLoading] = useState(false)
 
@@ -814,10 +878,38 @@ export default function TeacherDashboard() {
                             <p className="text-xs text-slate-500 mt-1.5">{selectedCourse.description}</p>
                           )}
                         </div>
-                        <button onClick={() => setShowAddStudent(true)}
-                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-semibold shadow-sm transition shrink-0">
-                          <Icon d={IC.plus} size={13} /> O'quvchi qo'shish
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          {/* Excel template download button */}
+                          <button 
+                            onClick={handleDownloadTemplate}
+                            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3.5 py-2 rounded-xl font-semibold border border-slate-200 transition"
+                            title="Excel shablonini yuklab olish"
+                          >
+                            <Icon d={IC.download} size={13} className="text-slate-500" />
+                            Excel shablon
+                          </button>
+
+                          {/* Excel import button */}
+                          <label 
+                            className={`flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs px-3.5 py-2 rounded-xl font-semibold border border-emerald-200 cursor-pointer transition ${importingExcel ? 'opacity-50 pointer-events-none' : ''}`}
+                            title="Excel fayldan o'quvchilarni import qilish"
+                          >
+                            <Icon d={IC.upload} size={13} className="text-emerald-600" />
+                            {importingExcel ? 'Yuklanmoqda...' : 'Excelda yuklash'}
+                            <input 
+                              type="file" 
+                              accept=".xlsx" 
+                              onChange={handleImportExcel} 
+                              className="hidden" 
+                              disabled={importingExcel}
+                            />
+                          </label>
+
+                          <button onClick={() => setShowAddStudent(true)}
+                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-semibold shadow-sm transition">
+                            <Icon d={IC.plus} size={13} /> O'quvchi qo'shish
+                          </button>
+                        </div>
                       </div>
                     </div>
 
