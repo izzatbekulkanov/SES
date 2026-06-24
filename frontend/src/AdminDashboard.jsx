@@ -862,6 +862,7 @@ export default function AdminDashboard() {
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
                         <th className="py-3 px-4 rounded-tl-xl">{t.user}</th>
                         <th className="py-3 px-4">{t.passport}</th>
+                        {section === 'students' && <th className="py-3 px-4">{t.courses}</th>}
                         {section !== 'students' && <th className="py-3 px-4">{t.jshshir}</th>}
                         {section !== 'students' && <th className="py-3 px-4">{t.email}</th>}
                         <th className="py-3 px-4 text-center rounded-tr-xl">{t.harakatlar}</th>
@@ -891,15 +892,6 @@ export default function AdminDashboard() {
                                     </button>
                                   )}
                                 </div>
-                                {section === 'students' && u.courses && u.courses.length > 0 && (
-                                  <div className="flex flex-col gap-1.5 items-start mt-2">
-                                    {u.courses.map(c => (
-                                      <span key={c.id} className="bg-violet-50 text-violet-700 text-[10px] px-2.5 py-1 rounded-lg border border-violet-100 font-semibold leading-tight text-left block" title={c.title}>
-                                        {c.title}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </td>
@@ -914,6 +906,21 @@ export default function AdminDashboard() {
                               </div>
                             )}
                           </td>
+                          {section === 'students' && (
+                            <td className="py-3 px-4">
+                              {u.courses && u.courses.length > 0 ? (
+                                <div className="flex flex-col gap-1.5 items-start">
+                                  {u.courses.map(c => (
+                                    <span key={c.id} className="bg-violet-50 text-violet-700 text-[10px] px-2.5 py-1 rounded-lg border border-violet-100 font-semibold leading-tight text-left block" title={c.title}>
+                                      {c.title}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">—</span>
+                              )}
+                            </td>
+                          )}
                           {section !== 'students' && <td className="py-3 px-4 font-mono text-xs text-slate-600">{u.jshshir || '—'}</td>}
                           {section !== 'students' && <td className="py-3 px-4 text-slate-600 text-xs">{u.email || '—'}</td>}
                           <td className="py-3 px-4 text-center">
