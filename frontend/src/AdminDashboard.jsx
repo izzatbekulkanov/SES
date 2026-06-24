@@ -863,7 +863,6 @@ export default function AdminDashboard() {
                         <th className="py-3 px-4 rounded-tl-xl">{t.user}</th>
                         <th className="py-3 px-4">{t.passport}</th>
                         {section === 'students' && <th className="py-3 px-4">{t.courses}</th>}
-                        {section !== 'students' && <th className="py-3 px-4">{t.jshshir}</th>}
                         {section !== 'students' && <th className="py-3 px-4">{t.email}</th>}
                         <th className="py-3 px-4 text-center rounded-tr-xl">{t.harakatlar}</th>
                       </tr>
@@ -921,7 +920,6 @@ export default function AdminDashboard() {
                               )}
                             </td>
                           )}
-                          {section !== 'students' && <td className="py-3 px-4 font-mono text-xs text-slate-600">{u.jshshir || '—'}</td>}
                           {section !== 'students' && <td className="py-3 px-4 text-slate-600 text-xs">{u.email || '—'}</td>}
                           <td className="py-3 px-4 text-center">
                             <button onClick={() => handleResetPassword(u.id, u.username)}
