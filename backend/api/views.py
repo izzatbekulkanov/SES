@@ -222,10 +222,13 @@ def admin_all_certificates(request):
         if cert.pdf_file:
             pdf_path = request.build_absolute_uri(cert.pdf_file.url)
 
+        parts = [student.first_name, student.last_name, student.father_name]
+        student_full = " ".join([p.strip() for p in parts if p and p.strip()])
+
         result.append({
             "certificate_id": cert.certificate_id,
             "student_id": student.id,
-            "student_name": student.get_full_name() or student.username,
+            "student_name": student_full or student.username,
             "student_username": student.username,
             "student_picture": pic,
             "course_id": cert.course.id,
@@ -578,11 +581,13 @@ def verify_certificate(request, certificate_id):
     if cert.expires_at < timezone.now():
         cert.is_active = False
         cert.save()
+        parts = [cert.student.first_name, cert.student.last_name, cert.student.father_name]
+        student_full = " ".join([p.strip() for p in parts if p and p.strip()])
         return Response({
             "is_valid": False,
             "detail": "Sertifikat muddati tugagan.",
             "certificate_id": cert.certificate_id,
-            "student_name": cert.student.get_full_name() or cert.student.username,
+            "student_name": student_full or cert.student.username,
             "course_name": cert.course.title,
             "expiry_date": cert.expires_at.strftime('%d.%m.%Y')
         }, status=status.HTTP_200_OK)

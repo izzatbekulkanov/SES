@@ -288,7 +288,7 @@ export default function AdminDashboard() {
   const token = localStorage.getItem('access_token')
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const VALID_SECTIONS = ['students', 'teachers', 'admins', 'stats', 'certs']
+  const VALID_SECTIONS = ['students', 'teachers', 'admins', 'add_user', 'stats', 'certs']
   const section = VALID_SECTIONS.includes(urlSection) ? urlSection : 'students'
 
   const changeSection = (s) => {
@@ -317,7 +317,6 @@ export default function AdminDashboard() {
   const [previewCert, setPreviewCert] = useState(null)
 
   // ── Create user form ─────────────────────────────────────────────────────────
-  const [showForm, setShowForm] = useState(false)
   const [role, setRole] = useState('TEACHER')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -433,10 +432,15 @@ export default function AdminDashboard() {
       })
       if (r.ok) {
         const u = await r.json()
-        setSuccessMsg(`✓ ${role === 'ADMIN' ? 'Admin' : role === 'TEACHER' ? t.roleTeacher : "O'quvchi"} yaratildi. Username: ${u.username}`)
-        resetForm(); setShowForm(false)
+        setSuccessMsg('')
+        setToast(`✓ ${role === 'ADMIN' ? 'Admin' : role === 'TEACHER' ? t.roleTeacher : "O'quvchi"} yaratildi. Username: ${u.username}`)
+        setTimeout(() => setToast(''), 4500)
+        resetForm()
         fetchUsers()
         if (section === 'stats') fetchTeacherStats()
+        setTimeout(() => {
+          changeSection(role === 'ADMIN' ? 'admins' : 'teachers')
+        }, 2000)
       } else {
         const d = await r.json()
         setError(d.detail || "Yaratishda xatolik yuz berdi.")
@@ -543,6 +547,7 @@ export default function AdminDashboard() {
     { id: 'students', label: t.students, icon: ICONS.students, color: 'violet', count: users.filter(u => u.role === 'STUDENT').length },
     { id: 'teachers', label: t.teachers, icon: ICONS.teacher, color: 'blue', count: users.filter(u => u.role === 'TEACHER').length },
     { id: 'admins',   label: t.admins,    icon: ICONS.admin,   color: 'red',    count: users.filter(u => u.role === 'ADMIN').length },
+    { id: 'add_user', label: t.addUser,   icon: ICONS.plus,    color: 'indigo', count: null },
     { id: 'stats',    label: t.stats,  icon: ICONS.stats,   color: 'indigo', count: null },
     { id: 'certs',    label: t.certs, icon: ICONS.cert,  color: 'emerald', count: certs.length || null },
   ]
@@ -606,7 +611,7 @@ export default function AdminDashboard() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Sidebar ── */}
-        <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col py-4 px-3 gap-1 shadow-sm overflow-y-auto">
+        <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col py-4 px-3 gap-1 shadow-sm overflow-y-auto">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">{t.controlPanel}</p>
 
           {navItems.map(item => {
@@ -620,9 +625,9 @@ export default function AdminDashboard() {
                   isActive ? cc.active : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <Icon d={item.icon} size={16} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} />
-                  <span>{item.label}</span>
+                  <span className="truncate whitespace-nowrap">{item.label}</span>
                 </div>
                 {item.count !== null && (
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/25 text-white' : cc.pill}`}>
@@ -633,15 +638,6 @@ export default function AdminDashboard() {
             )
           })}
 
-          <div className="mt-auto pt-4 border-t border-slate-100">
-            <button
-              onClick={() => { setShowForm(!showForm); setError(''); setSuccessMsg('') }}
-              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-sm transition-all"
-            >
-              <Icon d={ICONS.plus} size={15} />
-              {t.addUser}
-            </button>
-          </div>
         </aside>
 
         {/* ── Main ── */}
@@ -719,12 +715,12 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Create User Modal/Panel */}
-          {showForm && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-5">
-              <div className="flex items-center justify-between mb-4">
+          {/* Create User Section (Separate Page) */}
+          {section === 'add_user' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
                 <h2 className="font-bold text-slate-900 text-base">{t.addNewUser}</h2>
-                <button onClick={() => { setShowForm(false); resetForm() }}
+                <button type="button" onClick={() => { changeSection('students'); resetForm() }}
                   className="text-slate-400 hover:text-slate-600 text-lg font-bold leading-none w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">✕</button>
               </div>
 
@@ -819,7 +815,7 @@ export default function AdminDashboard() {
                     className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition">
                     {formLoading ? 'Yaratilmoqda...' : `${role === 'ADMIN' ? 'Admin' : t.roleTeacher}ni yaratish`}
                   </button>
-                  <button type="button" onClick={() => { setShowForm(false); resetForm() }}
+                  <button type="button" onClick={() => { changeSection('students'); resetForm() }}
                     className="text-sm text-slate-500 hover:text-slate-700 font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-100 transition">
                     Bekor qilish
                   </button>

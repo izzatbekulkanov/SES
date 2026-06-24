@@ -439,7 +439,7 @@ export default function StudentDashboard() {
                                   <Icon d={IC.download} size={11} /> {t.downloadPdf}
                                 </a>
                                 <button 
-                                  onClick={() => setPreviewCert({ ...cert, student_name: `${profile.first_name} ${profile.last_name}`, course_name: c.course_title })}
+                                  onClick={() => setPreviewCert({ ...cert, student_name: `${profile.first_name} ${profile.last_name}${profile.father_name ? ' ' + profile.father_name : ''}`, course_name: c.course_title })}
                                   className="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition"
                                 >
                                   <Icon d={IC.eye} size={11} /> Ko'rish

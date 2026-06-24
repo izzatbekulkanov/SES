@@ -170,8 +170,10 @@ class CertificateSerializer(serializers.ModelSerializer):
                   'issued_at', 'expires_at', 'raw_expires_at', 'is_active', 'issued_date', 'expiry_date')
 
     def get_student_name(self, obj):
-        full_name = obj.student.get_full_name()
-        return full_name if full_name else obj.student.username
+        user = obj.student
+        parts = [user.first_name, user.last_name, user.father_name]
+        full = " ".join([p.strip() for p in parts if p and p.strip()])
+        return full if full else user.username
 
     def get_student_picture(self, obj):
         request = self.context.get('request')

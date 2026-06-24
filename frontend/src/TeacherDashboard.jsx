@@ -727,7 +727,7 @@ export default function TeacherDashboard() {
                             <p className="text-xs text-slate-400 mt-0.5">{selectedCourse.title}</p>
                           </div>
                           <div className="flex gap-3 shrink-0">
-                            <button onClick={() => setPreviewCert({ ...selectedStudentCert, student_name: `${selectedStudent.first_name} ${selectedStudent.last_name}` })}
+                            <button onClick={() => setPreviewCert({ ...selectedStudentCert, student_name: `${selectedStudent.first_name} ${selectedStudent.last_name}${selectedStudent.father_name ? ' ' + selectedStudent.father_name : ''}` })}
                               className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-4 py-2 rounded-xl font-bold transition">
                               <Icon d={IC.eye} size={12} /> Ko'rish
                             </button>
@@ -755,11 +755,10 @@ export default function TeacherDashboard() {
 
                               {/* Headers */}
                               <div className="space-y-0.5">
-                                <p className="text-[6.5px] tracking-widest text-[#e8c97a] font-bold uppercase">
-                                  O'ZBEKISTON RESPUBLIKASI SOG'LIQNI SAQLASH VAZIRLIGI LITSENZIYASI ASOSIDA
-                                </p>
-                                <h4 className="text-[9px] font-extrabold text-[#c9a84c] tracking-wide uppercase">
-                                  "SAVDO AKADEMIYASI" O'QUV MARKAZI
+                                <h4 className="text-[7.5px] font-extrabold text-[#c9a84c] tracking-wider uppercase leading-tight">
+                                  SANITARIYA-EPIDEMIOLOGIK OSOYISHTALIK<br />
+                                  VA JAMOAT SALOMATLIGI QO'MITASINING<br />
+                                  TOSHKENT SHAHAR BOSHQARMASI
                                 </h4>
                               </div>
 
@@ -773,7 +772,7 @@ export default function TeacherDashboard() {
 
                               {/* Student Name */}
                               <h1 className="text-lg font-black text-white uppercase tracking-wide border-b border-[#e8c97a]/30 pb-0.5 px-4">
-                                {selectedStudent.first_name} {selectedStudent.last_name}
+                                {selectedStudent.first_name} {selectedStudent.last_name}{selectedStudent.father_name ? ` ${selectedStudent.father_name}` : ''}
                               </h1>
 
                               {/* Course Info */}
@@ -810,7 +809,10 @@ export default function TeacherDashboard() {
                                 <div className="text-center space-y-0.5 text-[7px] text-slate-300">
                                   <div className="h-3"></div>
                                   <p className="border-t border-slate-500 w-16 mx-auto pt-0.5"></p>
-                                  <p className="font-bold text-white">Markaz rahbari</p>
+                                  <p className="font-bold text-white text-[6px]">Malika Kudratxodjayeva</p>
+                                  <p className="text-slate-400 italic text-[5px] max-w-[80px] mx-auto leading-tight">
+                                    Toshkent shahar Sanitariya-epidemiologik osoyishtalik va jamoat salomatligi boshqarmasi boshlig'i
+                                  </p>
                                 </div>
                               </div>
                             </div>
@@ -994,7 +996,7 @@ export default function TeacherDashboard() {
                                     <td className="py-3 px-4 text-center">
                                       {hasCert ? (
                                         <button
-                                          onClick={() => setPreviewCert({ ...cert, student_name: `${s.first_name} ${s.last_name}` })}
+                                          onClick={() => setPreviewCert({ ...cert, student_name: `${s.first_name} ${s.last_name}${s.father_name ? ' ' + s.father_name : ''}` })}
                                           className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition whitespace-nowrap"
                                         >
                                           <Icon d={IC.eye} size={12} /> Ko'rish
@@ -1102,12 +1104,6 @@ export default function TeacherDashboard() {
                               <span className="font-medium text-slate-600">{s.phone_number}</span>
                             </div>
                           )}
-                          {s.organization && (
-                            <div className="flex items-center gap-2">
-                              <Icon d={IC.building} size={13} className="text-slate-400 shrink-0" />
-                              <span className="text-slate-600 truncate" title={s.organization}>{s.organization}</span>
-                            </div>
-                          )}
                           {s.email && (
                             <div className="flex items-center gap-2">
                               <Icon d={IC.mail} size={13} className="text-slate-400 shrink-0" />
@@ -1138,7 +1134,7 @@ export default function TeacherDashboard() {
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                       <button 
-                                        onClick={() => setPreviewCert({ ...cert, student_name: `${s.first_name} ${s.last_name}` })}
+                                        onClick={() => setPreviewCert({ ...cert, student_name: `${s.first_name} ${s.last_name}${s.father_name ? ' ' + s.father_name : ''}` })}
                                         className="w-6 h-6 flex items-center justify-center rounded bg-white hover:bg-slate-100 text-slate-500 hover:text-emerald-600 border border-slate-200 transition shadow-xs"
                                         title="Ko'rish"
                                       >
@@ -1657,11 +1653,10 @@ export default function TeacherDashboard() {
 
                   {/* Headers */}
                   <div className="space-y-0.5">
-                    <p className="text-[7.5px] tracking-widest text-[#e8c97a] font-bold uppercase">
-                      O'ZBEKISTON RESPUBLIKASI SOG'LIQNI SAQLASH VAZIRLIGI LITSENZIYASI ASOSIDA
-                    </p>
-                    <h4 className="text-[11px] font-extrabold text-[#c9a84c] tracking-wide uppercase">
-                      "SAVDO AKADEMIYASI" O'QUV MARKAZI
+                    <h4 className="text-[9px] font-extrabold text-[#c9a84c] tracking-wider uppercase leading-tight">
+                      SANITARIYA-EPIDEMIOLOGIK OSOYISHTALIK<br />
+                      VA JAMOAT SALOMATLIGI QO'MITASINING<br />
+                      TOSHKENT SHAHAR BOSHQARMASI
                     </h4>
                   </div>
 
@@ -1714,8 +1709,10 @@ export default function TeacherDashboard() {
                     <div className="text-center space-y-0.5 text-[8px] text-slate-300">
                       <div className="h-4"></div>
                       <p className="border-t border-slate-500 w-24 mx-auto pt-0.5"></p>
-                      <p className="font-bold text-white">Markaz rahbari</p>
-                      <p className="text-slate-400 italic">"Savdo Akademiyasi"</p>
+                      <p className="font-bold text-white">Malika Kudratxodjayeva</p>
+                      <p className="text-slate-400 italic text-[6px] max-w-[120px] mx-auto leading-tight">
+                        Toshkent shahar Sanitariya-epidemiologik osoyishtalik va jamoat salomatligi boshqarmasi boshlig'i
+                      </p>
                     </div>
                   </div>
 
