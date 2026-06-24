@@ -862,8 +862,8 @@ export default function AdminDashboard() {
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
                         <th className="py-3 px-4 rounded-tl-xl">{t.user}</th>
                         <th className="py-3 px-4">{t.passport}</th>
-                        <th className="py-3 px-4">{t.jshshir}</th>
-                        <th className="py-3 px-4">{t.email}</th>
+                        {section !== 'students' && <th className="py-3 px-4">{t.jshshir}</th>}
+                        {section !== 'students' && <th className="py-3 px-4">{t.email}</th>}
                         <th className="py-3 px-4 text-center rounded-tr-xl">{t.harakatlar}</th>
                       </tr>
                     </thead>
@@ -874,7 +874,9 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-3">
                               <Avatar src={u.profile_picture} name={`${u.first_name} ${u.last_name}`} role={u.role} />
                               <div>
-                                <p className="font-semibold text-slate-900">{u.first_name} {u.last_name}</p>
+                                <p className="font-semibold text-slate-900">
+                                  {u.first_name} {u.last_name}{u.father_name ? ` ${u.father_name}` : ''}
+                                </p>
                                 <div className="flex items-center gap-1.5">
                                   <code className="text-[11px] text-slate-400 font-mono">@{u.username}</code>
                                   {copiedUserId === u.id ? (
@@ -889,13 +891,10 @@ export default function AdminDashboard() {
                                     </button>
                                   )}
                                 </div>
-                                {u.father_name && (
-                                  <p className="text-[10px] text-slate-400 mt-0.5">{t.fatherPrefix} {u.father_name}</p>
-                                )}
                                 {section === 'students' && u.courses && u.courses.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5 max-w-[250px]">
+                                  <div className="flex flex-col gap-1.5 items-start mt-2">
                                     {u.courses.map(c => (
-                                      <span key={c.id} className="bg-violet-50 text-violet-700 text-[9px] px-2 py-0.5 rounded-full border border-violet-100 font-bold leading-none shrink-0" title={c.title}>
+                                      <span key={c.id} className="bg-violet-50 text-violet-700 text-[10px] px-2.5 py-1 rounded-lg border border-violet-100 font-semibold leading-tight text-left block" title={c.title}>
                                         {c.title}
                                       </span>
                                     ))}
@@ -915,8 +914,8 @@ export default function AdminDashboard() {
                               </div>
                             )}
                           </td>
-                          <td className="py-3 px-4 font-mono text-xs text-slate-600">{u.jshshir || '—'}</td>
-                          <td className="py-3 px-4 text-slate-600 text-xs">{u.email || '—'}</td>
+                          {section !== 'students' && <td className="py-3 px-4 font-mono text-xs text-slate-600">{u.jshshir || '—'}</td>}
+                          {section !== 'students' && <td className="py-3 px-4 text-slate-600 text-xs">{u.email || '—'}</td>}
                           <td className="py-3 px-4 text-center">
                             <button onClick={() => handleResetPassword(u.id, u.username)}
                               className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
