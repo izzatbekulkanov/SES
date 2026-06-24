@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'http://localhost:8000/api'
-const PAGE_SIZE = 8
+const API = 'http://127.0.0.1:8000/api'
+const PAGE_SIZE = 50
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 20, className = '' }) => (
@@ -44,7 +44,7 @@ const ICONS = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://localhost:8000${url}`
+  return `http://127.0.0.1:8000${url}`
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -68,19 +68,10 @@ function Avatar({ src, name, role, size = 'md' }) {
   )
 }
 
-// ─── Badge ────────────────────────────────────────────────────────────────────
-function RoleBadge({ role }) {
-  const map = {
-    ADMIN:   { label: 'Admin', cls: 'bg-red-50 text-red-700 border-red-200' },
-    TEACHER: { label: "O'qituvchi", cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-    STUDENT: { label: "O'quvchi", cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  }
-  const { label, cls } = map[role] || { label: role, cls: 'bg-slate-50 text-slate-600 border-slate-200' }
-  return <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${cls}`}>{label}</span>
-}
+
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
-function Pagination({ page, total, pageSize, onPage }) {
+function Pagination({ page, total, pageSize, onPage, t }) {
   const pages = Math.ceil(total / pageSize)
   if (pages <= 1) return null
   const items = []
@@ -93,7 +84,7 @@ function Pagination({ page, total, pageSize, onPage }) {
 
   return (
     <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100 shrink-0">
-      <span className="text-xs text-slate-400">{total} ta • Sahifa {page}/{pages}</span>
+      <span className="text-xs text-slate-400">{total} {t ? t.items : 'ta'} • {t ? t.page : 'Sahifa'} {page}/{pages}</span>
       <div className="flex items-center gap-1">
         <button onClick={() => onPage(page - 1)} disabled={page === 1}
           className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-500 transition">
@@ -119,7 +110,7 @@ function Pagination({ page, total, pageSize, onPage }) {
 }
 
 // ─── Search Input ─────────────────────────────────────────────────────────────
-function SearchBar({ value, onChange, placeholder = 'Qidirish...' }) {
+function SearchBar({ value, onChange, placeholder = "" }) {
   return (
     <div className="relative">
       <Icon d={ICONS.search} size={15}
@@ -136,6 +127,160 @@ function SearchBar({ value, onChange, placeholder = 'Qidirish...' }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+
+const translations = {
+  uz: {
+    dashboardTitle: "Administrator",
+    controlPanel: "Boshqaruv paneli",
+    students: "O'quvchilar",
+    teachers: "O'qituvchilar",
+    admins: "Adminlar",
+    certs: "Sertifikatlar",
+    stats: "Statistika",
+    profile: "Profil",
+    logout: "Chiqish",
+    addUser: "Foydalanuvchi qo'shish",
+    totalRegistered: "Jami ro'yxatda",
+    search: "Qidirish...",
+    page: "Sahifa",
+    items: "ta",
+    addNewUser: "Yangi foydalanuvchi yaratish",
+    role: "Tizim Roli *",
+    roleTeacher: "O'qituvchi",
+    roleAdmin: "Administrator",
+    firstName: "Ism *",
+    lastName: "Familiya *",
+    email: "Email",
+    passport: "Pasport Seriya",
+    passportNum: "Pasport Raqami",
+    jshshir: "JSHSHIR (14 raqam)",
+    birthDate: "Tug'ilgan sana",
+    fatherName: "Otasining ismi",
+    profilePic: "Profil rasmi",
+    cancel: "Bekor qilish",
+    save: "Saqlash",
+    saving: "Saqlanmoqda...",
+    noUsers: "Hozircha foydalanuvchilar yo'q.",
+    actions: "Amallar",
+    resetPass: "Parolni tiklash",
+    resetPassConfirm: "haqiqatan ham parolini 'ses2026' ga tiklamoqchimisiz?",
+    resetting: "Tiklanmoqda...",
+    certListTitle: "Barcha Berilgan Sertifikatlar",
+    noCerts: "Hozircha sertifikatlar berilmagan.",
+    certId: "Sertifikat ID",
+    student: "O'quvchi",
+    course: "Kurs",
+    issuedDate: "Berilgan sana",
+    status: "Holati",
+    active: "Faol",
+    finished: "Tugagan",
+    viewPdf: "PDF ko'rish",
+    downloadPdf: "Yuklab olish",
+    teacherStatsTitle: "O'qituvchilar Statistikasi",
+    noTeachers: "Hozircha o'qituvchilar mavjud emas.",
+    courses: "Kurslar",
+    enrolledStudents: "O'quvchilar (jami)",
+    certCount: "Sertifikatlar",
+    createdCourses: "Yaratilgan kurslar",
+    noTeacherCourses: "Hozircha dars kurslari yaratilmagan.",
+    courseTitle: "Kurs nomi",
+    dates: "Sanalar",
+    progress: "Jarayon",
+    lessonsCount: "ta dars",
+    totalStr: "Jami:",
+    // New additions for complete translation:
+    user: "Foydalanuvchi",
+    harakatlar: "Harakatlar",
+    loading: "Yuklanmoqda...",
+    copied: "Nusxalandi!",
+    fatherPrefix: "Otasi:",
+    searchUsersPlaceholder: "Ism, username, JSHSHIR bo'yicha...",
+    searchCertsPlaceholder: "Ism, kurs, ID bo'yicha...",
+    usersFound: "ta foydalanuvchi topildi",
+    notFound: "Foydalanuvchi topilmadi",
+    noCertsFound: "Sertifikatlar topilmadi",
+    filtersReset: "Filtrlarni tozalash",
+    allCertsFound: "ta topildi",
+    certTotalFound: "Sertifikatlar",
+    tempPasswordDesc: "Parol avtomatik:"
+  },
+  ru: {
+    dashboardTitle: "Администратор",
+    controlPanel: "Панель управления",
+    students: "Студенты",
+    teachers: "Преподаватели",
+    admins: "Админы",
+    certs: "Сертификаты",
+    stats: "Статистика",
+    profile: "Профиль",
+    logout: "Выйти",
+    addUser: "Добавить пользователя",
+    totalRegistered: "Всего в списке",
+    search: "Поиск...",
+    page: "Страница",
+    items: "шт",
+    addNewUser: "Создать нового пользователя",
+    role: "Роль в системе *",
+    roleTeacher: "Преподаватель",
+    roleAdmin: "Администратор",
+    firstName: "Имя *",
+    lastName: "Фамилия *",
+    email: "Email",
+    passport: "Серия паспорта",
+    passportNum: "Номер паспорта",
+    jshshir: "ПИНФЛ (14 цифр)",
+    birthDate: "Дата рождения",
+    fatherName: "Отчество",
+    profilePic: "Фото профиля",
+    cancel: "Отмена",
+    save: "Сохранить",
+    saving: "Сохранение...",
+    noUsers: "Пока нет пользователей.",
+    actions: "Действия",
+    resetPass: "Сброс пароля",
+    resetPassConfirm: "вы действительно хотите сбросить пароль на 'ses2026'?",
+    resetting: "Сброс...",
+    certListTitle: "Все выданные сертификаты",
+    noCerts: "Пока нет сертификатов.",
+    certId: "ID Сертификата",
+    student: "Студент",
+    course: "Курс",
+    issuedDate: "Дата выдачи",
+    status: "Статус",
+    active: "Активен",
+    finished: "Завершен",
+    viewPdf: "Смотреть PDF",
+    downloadPdf: "Скачать",
+    teacherStatsTitle: "Статистика преподавателей",
+    noTeachers: "Пока нет преподавателей.",
+    courses: "Курсы",
+    enrolledStudents: "Студенты (всего)",
+    certCount: "Сертификаты",
+    createdCourses: "Созданные курсы",
+    noTeacherCourses: "Пока нет курсов.",
+    courseTitle: "Название курса",
+    dates: "Даты",
+    progress: "Прогресс",
+    lessonsCount: "уроков",
+    totalStr: "Итого:",
+    // New additions for complete translation:
+    user: "Пользователь",
+    harakatlar: "Действия",
+    loading: "Загрузка...",
+    copied: "Скопировано!",
+    fatherPrefix: "Отец:",
+    searchUsersPlaceholder: "По имени, username, ПИНФЛ...",
+    searchCertsPlaceholder: "По имени, курсу, ID...",
+    usersFound: "пользователей найдено",
+    notFound: "Пользователь не найден",
+    noCertsFound: "Сертификаты не найдены",
+    filtersReset: "Сбросить фильтры",
+    allCertsFound: "найдено",
+    certTotalFound: "Сертификаты",
+    tempPasswordDesc: "Пароль по умолчанию:"
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const { section: urlSection } = useParams()
@@ -155,6 +300,8 @@ export default function AdminDashboard() {
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [userSearch, setUserSearch] = useState('')
   const [userPage, setUserPage] = useState(1)
+  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'uz')
+  const t = translations[lang] || translations.uz;
 
   // ── Teacher stats ────────────────────────────────────────────────────────────
   const [teacherStats, setTeacherStats] = useState([])
@@ -187,7 +334,16 @@ export default function AdminDashboard() {
   // ── Feedback ─────────────────────────────────────────────────────────────────
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [toast, setToast] = useState('') // bottom-right toast
   const [showProfile, setShowProfile] = useState(false)
+  const [copiedUserId, setCopiedUserId] = useState(null)
+
+  const handleCopyUsername = (e, username, userId) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(username)
+    setCopiedUserId(userId)
+    setTimeout(() => setCopiedUserId(null), 1500)
+  }
 
   // ── Load ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -201,7 +357,7 @@ export default function AdminDashboard() {
     if (section === 'certs') fetchCerts()
   }, [section])
 
-  const fetchUsers = async () => {
+  async function fetchUsers() {
     setLoadingUsers(true)
     try {
       const r = await fetch(`${API}/admin/users/`, { headers: { Authorization: `Bearer ${token}` } })
@@ -211,7 +367,7 @@ export default function AdminDashboard() {
     finally { setLoadingUsers(false) }
   }
 
-  const fetchTeacherStats = async () => {
+  async function fetchTeacherStats() {
     setLoadingStats(true)
     try {
       const r = await fetch(`${API}/admin/teacher-stats/`, { headers: { Authorization: `Bearer ${token}` } })
@@ -220,7 +376,7 @@ export default function AdminDashboard() {
     finally { setLoadingStats(false) }
   }
 
-  const fetchCerts = async (search = '') => {
+  async function fetchCerts(search = '') {
     setLoadingCerts(true)
     try {
       const q = search ? `?search=${encodeURIComponent(search)}` : ''
@@ -238,7 +394,12 @@ export default function AdminDashboard() {
   }, [certSearch, section])
 
   // ── Actions ───────────────────────────────────────────────────────────────────
-  const handleLogout = () => { localStorage.clear(); navigate('/login') }
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
 
   const handleProfilePicChange = (e) => {
     const file = e.target.files[0]
@@ -247,7 +408,7 @@ export default function AdminDashboard() {
 
   const resetForm = () => {
     setFirstName(''); setLastName(''); setEmail('')
-    setPassportSeries(''); setPassportNumber(''); setJshshir('')
+    setPassportSeries(''); setPassportNumber('')
     setBirthDate(''); setFatherName('')
     setRole('TEACHER'); setProfilePicture(null); setProfilePreview(null)
   }
@@ -259,7 +420,7 @@ export default function AdminDashboard() {
       const fd = new FormData()
       fd.append('first_name', firstName); fd.append('last_name', lastName)
       fd.append('email', email); fd.append('passport_series', passportSeries)
-      fd.append('passport_number', passportNumber); fd.append('jshshir', jshshir)
+      fd.append('passport_number', passportNumber)
       if (birthDate) fd.append('birth_date', birthDate)
       fd.append('father_name', fatherName)
       fd.append('role', role)
@@ -272,7 +433,7 @@ export default function AdminDashboard() {
       })
       if (r.ok) {
         const u = await r.json()
-        setSuccessMsg(`✓ ${role === 'ADMIN' ? 'Admin' : role === 'TEACHER' ? "O'qituvchi" : "O'quvchi"} yaratildi. Username: ${u.username}`)
+        setSuccessMsg(`✓ ${role === 'ADMIN' ? 'Admin' : role === 'TEACHER' ? t.roleTeacher : "O'quvchi"} yaratildi. Username: ${u.username}`)
         resetForm(); setShowForm(false)
         fetchUsers()
         if (section === 'stats') fetchTeacherStats()
@@ -285,14 +446,16 @@ export default function AdminDashboard() {
   }
 
   const handleResetPassword = async (userId, username) => {
-    setError(''); setSuccessMsg('')
+    setError('')
     const r = await fetch(`${API}/admin/reset-password/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ user_id: userId })
     })
-    if (r.ok) setSuccessMsg(`✓ ${username} paroli 'ses2026' ga qaytarildi.`)
-    else setError('Parolni tiklashda xatolik yuz berdi.')
+    if (r.ok) {
+      setToast(`✓ ${username} paroli 'ses2026' ga qaytarildi.`)
+      setTimeout(() => setToast(''), 4000)
+    } else setError(`${t.resetPass}da xatolik yuz berdi.`)
   }
 
   // ── Filtered & paginated users ────────────────────────────────────────────────
@@ -377,11 +540,11 @@ export default function AdminDashboard() {
 
   // ── Nav menu config ────────────────────────────────────────────────────────────
   const navItems = [
-    { id: 'students', label: "O'quvchilar", icon: ICONS.students, color: 'violet', count: users.filter(u => u.role === 'STUDENT').length },
-    { id: 'teachers', label: "O'qituvchilar", icon: ICONS.teacher, color: 'blue', count: users.filter(u => u.role === 'TEACHER').length },
-    { id: 'admins',   label: 'Adminlar',    icon: ICONS.admin,   color: 'red',    count: users.filter(u => u.role === 'ADMIN').length },
-    { id: 'stats',    label: 'Statistika',  icon: ICONS.stats,   color: 'indigo', count: null },
-    { id: 'certs',    label: 'Sertifikatlar', icon: ICONS.cert,  color: 'emerald', count: certs.length || null },
+    { id: 'students', label: t.students, icon: ICONS.students, color: 'violet', count: users.filter(u => u.role === 'STUDENT').length },
+    { id: 'teachers', label: t.teachers, icon: ICONS.teacher, color: 'blue', count: users.filter(u => u.role === 'TEACHER').length },
+    { id: 'admins',   label: t.admins,    icon: ICONS.admin,   color: 'red',    count: users.filter(u => u.role === 'ADMIN').length },
+    { id: 'stats',    label: t.stats,  icon: ICONS.stats,   color: 'indigo', count: null },
+    { id: 'certs',    label: t.certs, icon: ICONS.cert,  color: 'emerald', count: certs.length || null },
   ]
 
   const colorConfig = {
@@ -396,7 +559,7 @@ export default function AdminDashboard() {
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f0f2f8] flex flex-col">
+    <div className="h-screen bg-[#f0f2f8] flex flex-col overflow-hidden">
 
       {/* ── Topbar ── */}
       <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-40 shadow-sm">
@@ -404,10 +567,22 @@ export default function AdminDashboard() {
           <img src="/logo.png" alt="SES Logo" className="w-8 h-8 object-contain" />
           <span className="font-bold text-slate-800 text-sm tracking-tight">SES PORTAL</span>
           <span className="hidden sm:inline text-[11px] bg-violet-50 text-violet-600 border border-violet-100 px-2 py-0.5 rounded-full font-semibold">
-            Administrator
+            {t.roleAdmin}
           </span>
         </div>
         <div className="flex items-center gap-3">
+          
+          <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200 mr-2">
+            <button onClick={() => { setLang('uz'); localStorage.setItem('lang', 'uz'); }}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${lang === 'uz' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              UZ
+            </button>
+            <button onClick={() => { setLang('ru'); localStorage.setItem('lang', 'ru'); }}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${lang === 'ru' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              RU
+            </button>
+          </div>
+
           <div className="hidden sm:flex items-center gap-2 text-right">
             <div>
               <p className="text-xs font-bold text-slate-800 leading-none">{user.first_name} {user.last_name}</p>
@@ -418,12 +593,12 @@ export default function AdminDashboard() {
           <button onClick={() => setShowProfile(true)}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-violet-600 bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 px-3 py-1.5 rounded-lg font-semibold transition">
             <Icon d={ICONS.profile} size={13} />
-            Profil
+            {t.profile}
           </button>
           <button onClick={handleLogout}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg font-semibold transition">
             <Icon d={ICONS.logout} size={13} />
-            Chiqish
+            {t.logout}
           </button>
         </div>
       </header>
@@ -431,8 +606,8 @@ export default function AdminDashboard() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Sidebar ── */}
-        <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col py-4 px-3 gap-1 shadow-sm">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Boshqaruv paneli</p>
+        <aside className="w-56 shrink-0 bg-white border-r border-slate-200 flex flex-col py-4 px-3 gap-1 shadow-sm overflow-y-auto">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">{t.controlPanel}</p>
 
           {navItems.map(item => {
             const isActive = section === item.id
@@ -464,7 +639,7 @@ export default function AdminDashboard() {
               className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-sm transition-all"
             >
               <Icon d={ICONS.plus} size={15} />
-              Foydalanuvchi qo'shish
+              {t.addUser}
             </button>
           </div>
         </aside>
@@ -476,7 +651,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
             {[
               {
-                label: "O'quvchilar",
+                label: t.students,
                 count: users.filter(u => u.role === 'STUDENT').length,
                 icon: ICONS.students,
                 iconBg: 'bg-violet-100',
@@ -486,7 +661,7 @@ export default function AdminDashboard() {
                 onClick: () => { changeSection('students'); setUserSearch(''); setUserPage(1) }
               },
               {
-                label: "O'qituvchilar",
+                label: t.teachers,
                 count: users.filter(u => u.role === 'TEACHER').length,
                 icon: ICONS.teacher,
                 iconBg: 'bg-blue-100',
@@ -496,7 +671,7 @@ export default function AdminDashboard() {
                 onClick: () => { changeSection('teachers'); setUserSearch(''); setUserPage(1) }
               },
               {
-                label: 'Adminlar',
+                label: t.admins,
                 count: users.filter(u => u.role === 'ADMIN').length,
                 icon: ICONS.admin,
                 iconBg: 'bg-red-100',
@@ -506,7 +681,7 @@ export default function AdminDashboard() {
                 onClick: () => { changeSection('admins'); setUserSearch(''); setUserPage(1) }
               },
               {
-                label: 'Sertifikatlar',
+                label: t.certs,
                 count: certs.length,
                 icon: ICONS.cert,
                 iconBg: 'bg-emerald-100',
@@ -526,7 +701,7 @@ export default function AdminDashboard() {
                   <p className={`text-3xl font-black ${text} leading-none`}>
                     {loadingUsers ? <span className="text-slate-300 text-xl">—</span> : count}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-1">Jami ro'yxatda</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{t.totalRegistered}</p>
                 </div>
                 <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                   <Icon d={icon} size={20} className={iconColor} />
@@ -548,7 +723,7 @@ export default function AdminDashboard() {
           {showForm && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-slate-900 text-base">Yangi foydalanuvchi yaratish</h2>
+                <h2 className="font-bold text-slate-900 text-base">{t.addNewUser}</h2>
                 <button onClick={() => { setShowForm(false); resetForm() }}
                   className="text-slate-400 hover:text-slate-600 text-lg font-bold leading-none w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">✕</button>
               </div>
@@ -557,9 +732,9 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Role */}
                   <div className="lg:col-span-3">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Tizim Roli *</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">{t.role}</label>
                     <div className="flex gap-2">
-                      {[['TEACHER',"O'qituvchi",'blue'], ['ADMIN','Administrator','red']].map(([val, lbl, color]) => (
+                      {[['TEACHER',t.roleTeacher,'blue'], ['ADMIN',t.roleAdmin,'red']].map(([val, lbl, color]) => (
                         <button key={val} type="button" onClick={() => setRole(val)}
                           className={`flex-1 py-2 rounded-xl text-sm font-bold border transition ${
                             role === val
@@ -572,51 +747,45 @@ export default function AdminDashboard() {
 
                   {/* Name */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Ism *</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.firstName}</label>
                     <input required type="text" placeholder="Bahrom" value={firstName} onChange={e => setFirstName(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Familiya *</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.lastName}</label>
                     <input required type="text" placeholder="Karimov" value={lastName} onChange={e => setLastName(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Email</label>
-                    <input type="email" placeholder="user@ses.uz" value={email} onChange={e => setEmail(e.target.value)}
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.fatherName}</label>
+                    <input type="text" placeholder="Masalan: Aliyevich" value={fatherName} onChange={e => setFatherName(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
                   </div>
 
-                  {/* Passport */}
+                  {/* Email & Passport */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Pasport Seriya</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.email}</label>
+                    <input type="email" placeholder="user@ses.uz" value={email} onChange={e => setEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.passport}</label>
                     <input type="text" placeholder="AA" maxLength={2} value={passportSeries}
                       onChange={e => setPassportSeries(e.target.value.toUpperCase())}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Pasport Raqam</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.passportNum}</label>
                     <input type="text" placeholder="1234567" maxLength={7} value={passportNumber}
                       onChange={e => setPassportNumber(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">JSHSHIR (14 raqam) *</label>
-                    <input required type="text" placeholder="30101901234567" maxLength={14} value={jshshir}
-                      onChange={e => setJshshir(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
-                  </div>
 
-                  {/* Birth date & Father name */}
+                  {/* Birth date */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tug'ilgan sana</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">{t.birthDate}</label>
                     <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none text-slate-700" />
-                  </div>
-                  <div className="lg:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Otasining ismi (Patronim)</label>
-                    <input type="text" placeholder="Masalan: Aliyevich" value={fatherName} onChange={e => setFatherName(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
                   </div>
 
                   {/* Photo */}
@@ -648,7 +817,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-3 mt-5 pt-4 border-t border-slate-100">
                   <button type="submit" disabled={formLoading}
                     className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition">
-                    {formLoading ? 'Yaratilmoqda...' : `${role === 'ADMIN' ? 'Admin' : "O'qituvchi"}ni yaratish`}
+                    {formLoading ? 'Yaratilmoqda...' : `${role === 'ADMIN' ? 'Admin' : t.roleTeacher}ni yaratish`}
                   </button>
                   <button type="button" onClick={() => { setShowForm(false); resetForm() }}
                     className="text-sm text-slate-500 hover:text-slate-700 font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-100 transition">
@@ -667,35 +836,35 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div>
                   <h2 className="font-bold text-slate-900 text-lg">
-                    {section === 'students' ? "O'quvchilar" : section === 'teachers' ? "O'qituvchilar" : 'Adminlar'}
+                    {section === 'students' ? t.students : section === 'teachers' ? t.teachers : t.admins}
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">{filteredUsers.length} ta foydalanuvchi topildi</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{filteredUsers.length} {t.usersFound}</p>
                 </div>
                 <SearchBar
                   value={userSearch}
                   onChange={v => { setUserSearch(v); setUserPage(1) }}
-                  placeholder="Ism, username, JSHSHIR bo'yicha..."
+                  placeholder={t.searchUsersPlaceholder}
                 />
               </div>
 
               {/* Table */}
               {loadingUsers ? (
-                <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">Yuklanmoqda...</div>
+                <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">{t.loading}</div>
               ) : pagedUsers.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-400">
                   <Icon d={ICONS.search} size={36} className="opacity-30" />
-                  <p className="text-sm font-semibold">Foydalanuvchi topilmadi</p>
+                  <p className="text-sm font-semibold">{t.notFound}</p>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[640px]">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                        <th className="py-3 px-4 rounded-tl-xl">Foydalanuvchi</th>
-                        <th className="py-3 px-4">Pasport</th>
-                        <th className="py-3 px-4">JSHSHIR</th>
-                        <th className="py-3 px-4">Email</th>
-                        <th className="py-3 px-4 text-center rounded-tr-xl">Harakatlar</th>
+                        <th className="py-3 px-4 rounded-tl-xl">{t.user}</th>
+                        <th className="py-3 px-4">{t.passport}</th>
+                        <th className="py-3 px-4">{t.jshshir}</th>
+                        <th className="py-3 px-4">{t.email}</th>
+                        <th className="py-3 px-4 text-center rounded-tr-xl">{t.harakatlar}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
@@ -706,21 +875,22 @@ export default function AdminDashboard() {
                               <Avatar src={u.profile_picture} name={`${u.first_name} ${u.last_name}`} role={u.role} />
                               <div>
                                 <p className="font-semibold text-slate-900">{u.first_name} {u.last_name}</p>
-                                <div className="flex items-center">
+                                <div className="flex items-center gap-1.5">
                                   <code className="text-[11px] text-slate-400 font-mono">@{u.username}</code>
-                                  <button 
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      navigator.clipboard.writeText(u.username); 
-                                    }}
-                                    className="ml-1.5 p-0.5 bg-slate-100 hover:bg-slate-200 active:bg-violet-100 text-slate-500 hover:text-slate-700 rounded transition duration-150"
-                                    title="Username ko'chirish"
-                                  >
-                                    <Icon d={ICONS.copy} size={9} />
-                                  </button>
+                                  {copiedUserId === u.id ? (
+                                    <span className="text-[9px] text-emerald-600 font-bold animate-pulse">{t.copied}</span>
+                                  ) : (
+                                    <button 
+                                      onClick={(e) => handleCopyUsername(e, u.username, u.id)}
+                                      className="p-0.5 bg-slate-100 hover:bg-slate-200 active:bg-violet-100 text-slate-500 hover:text-slate-700 rounded transition duration-150"
+                                      title={t.copied}
+                                    >
+                                      <Icon d={ICONS.copy} size={9} />
+                                    </button>
+                                  )}
                                 </div>
                                 {u.father_name && (
-                                  <p className="text-[10px] text-slate-400 mt-0.5">Otasi: {u.father_name}</p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">{t.fatherPrefix} {u.father_name}</p>
                                 )}
                                 {section === 'students' && u.courses && u.courses.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1.5 max-w-[250px]">
@@ -751,7 +921,7 @@ export default function AdminDashboard() {
                             <button onClick={() => handleResetPassword(u.id, u.username)}
                               className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
                               <Icon d={ICONS.reset} size={11} />
-                              Parolni tiklash
+                              {t.resetPass}
                             </button>
                           </td>
                         </tr>
@@ -761,7 +931,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <Pagination page={userPage} total={filteredUsers.length} pageSize={PAGE_SIZE} onPage={setUserPage} />
+              <Pagination page={userPage} total={filteredUsers.length} pageSize={PAGE_SIZE} onPage={setUserPage} t={t} />
             </div>
           )}
 
@@ -769,7 +939,7 @@ export default function AdminDashboard() {
           {section === 'stats' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden p-5">
               <div className="flex items-center justify-between mb-5 shrink-0">
-                <h2 className="font-bold text-slate-900 text-lg">O'qituvchilar Statistikasi</h2>
+                <h2 className="font-bold text-slate-900 text-lg">{t.teacherStatsTitle}</h2>
                 <button onClick={fetchTeacherStats}
                   className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 px-3 py-1.5 rounded-lg font-semibold transition">
                   <Icon d={ICONS.reset} size={13} /> Yangilash
@@ -779,7 +949,7 @@ export default function AdminDashboard() {
               {loadingStats ? (
                 <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">Yuklanmoqda...</div>
               ) : teacherStats.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">O'qituvchilar topilmadi.</div>
+                <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">{t.noTeachers}</div>
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                   {teacherStats.map(teacher => (
@@ -796,9 +966,9 @@ export default function AdminDashboard() {
                         {/* Stat chips */}
                         <div className="flex flex-wrap gap-2">
                           {[
-                            [teacher.courses_count, 'ta kurs', 'violet'],
+                            [teacher.courses_count, "ta kurs", 'violet'],
                             [teacher.students_count, "ta o'quvchi", 'blue'],
-                            [teacher.total_enrollments, 'ta dars-talaba', 'indigo'],
+                            [teacher.total_enrollments, `${t.lessonsCount}`, 'indigo'],
                             [teacher.certificates_count, 'ta sertifikat', 'emerald'],
                           ].map(([n, label, color], i) => {
                             const chip = {
@@ -819,7 +989,7 @@ export default function AdminDashboard() {
                       {/* Courses */}
                       {teacher.courses.length > 0 && (
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Kurslar</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{t.courses}</p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {teacher.courses.map(course => (
                               <div key={course.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-3">
@@ -877,8 +1047,8 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden p-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shrink-0 pb-4 border-b border-slate-100">
                 <div>
-                  <h2 className="font-bold text-slate-900 text-lg">Barcha Sertifikatlar</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Jami: {certs.length} ta sertifikat</p>
+                  <h2 className="font-bold text-slate-900 text-lg">{t.certListTitle}</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">{t.totalStr} {certs.length} {lang === 'uz' ? 'ta sertifikat' : 'сертификатов'}</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
@@ -889,7 +1059,7 @@ export default function AdminDashboard() {
                       onChange={e => handleTeacherChange(e.target.value)}
                       className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition appearance-none cursor-pointer"
                     >
-                      <option value="">Barcha o'qituvchilar</option>
+                      <option value="">{lang === 'uz' ? "Barcha o'qituvchilar" : "Все преподаватели"}</option>
                       {uniqueTeachers.map(t => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
@@ -906,7 +1076,7 @@ export default function AdminDashboard() {
                       onChange={e => { setSelectedCourseId(e.target.value); setCertPage(1) }}
                       className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition appearance-none cursor-pointer"
                     >
-                      <option value="">Barcha darslar</option>
+                      <option value="">{lang === 'uz' ? "Barcha darslar" : "Все курсы"}</option>
                       {uniqueCourses.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -921,7 +1091,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => { setSelectedTeacherId(''); setSelectedCourseId(''); setCertPage(1) }}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-xl border border-red-150 transition"
-                      title="Filtrlarni tozalash"
+                      title={t.filtersReset}
                     >
                       <Icon d={ICONS.reset} size={14} />
                     </button>
@@ -930,25 +1100,25 @@ export default function AdminDashboard() {
                   <SearchBar
                     value={certSearch}
                     onChange={v => { setCertSearch(v); setCertPage(1) }}
-                    placeholder="Ism, kurs, ID bo'yicha..."
+                    placeholder={t.searchCertsPlaceholder}
                   />
                 </div>
               </div>
 
               {loadingCerts ? (
-                <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">Yuklanmoqda...</div>
+                <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">{t.loading}</div>
               ) : pagedGroupedCerts.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-400">
                   <Icon d={ICONS.cert} size={40} className="opacity-20" />
-                  <p className="text-sm font-semibold">Sertifikatlar topilmadi</p>
+                  <p className="text-sm font-semibold">{t.noCertsFound}</p>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                        <th className="py-3 px-4 rounded-tl-xl w-[280px]">O'quvchi</th>
-                        <th className="py-3 px-4 rounded-tr-xl">Sertifikatlar ({groupedCerts.reduce((acc, g) => acc + g.certificates.length, 0)} ta topildi)</th>
+                        <th className="py-3 px-4 rounded-tl-xl w-[280px]">{t.student}</th>
+                        <th className="py-3 px-4 rounded-tr-xl">{t.certTotalFound} ({groupedCerts.reduce((acc, g) => acc + g.certificates.length, 0)} {t.allCertsFound})</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
@@ -960,18 +1130,19 @@ export default function AdminDashboard() {
                               <Avatar src={group.student_picture} name={group.student_name} role="STUDENT" size="lg" />
                               <div className="space-y-1">
                                 <p className="font-bold text-slate-900 leading-snug">{group.student_name}</p>
-                                <div className="flex items-center">
+                                <div className="flex items-center gap-1.5">
                                   <code className="text-[11px] text-slate-400 font-mono">@{group.student_username}</code>
-                                  <button 
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      navigator.clipboard.writeText(group.student_username); 
-                                    }}
-                                    className="ml-1.5 p-0.5 bg-slate-100 hover:bg-slate-200 active:bg-violet-100 text-slate-500 hover:text-slate-700 rounded transition duration-150"
-                                    title="Username ko'chirish"
-                                  >
-                                    <Icon d={ICONS.copy} size={9} />
-                                  </button>
+                                  {copiedUserId === group.student_username ? (
+                                    <span className="text-[9px] text-emerald-600 font-bold animate-pulse">Nusxalandi!</span>
+                                  ) : (
+                                    <button 
+                                      onClick={(e) => handleCopyUsername(e, group.student_username, group.student_username)}
+                                      className="p-0.5 bg-slate-100 hover:bg-slate-200 active:bg-violet-100 text-slate-500 hover:text-slate-700 rounded transition duration-150"
+                                      title="Username ko'chirish"
+                                    >
+                                      <Icon d={ICONS.copy} size={9} />
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="pt-1">
                                   <span className="inline-block px-2.5 py-0.5 bg-violet-50 text-violet-700 border border-violet-150 rounded-full text-[10px] font-bold">
@@ -1009,7 +1180,7 @@ export default function AdminDashboard() {
                                       <p className="font-bold text-slate-800 text-sm leading-snug">{cert.course_name}</p>
                                       <p className="text-[11.5px] text-slate-500 font-semibold mt-1 flex items-center gap-1">
                                         <Icon d={ICONS.teacher} size={12} className="text-slate-400" />
-                                        O'qituvchi: <span className="text-slate-700 font-bold">{cert.teacher_name}</span>
+                                        {t.roleTeacher}: <span className="text-slate-700 font-bold">{cert.teacher_name}</span>
                                       </p>
                                     </div>
 
@@ -1043,7 +1214,7 @@ export default function AdminDashboard() {
                                         className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-250 hover:border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold transition"
                                       >
                                         <Icon d={ICONS.download} size={13} />
-                                        Yuklab olish
+                                        {t.downloadPdf}
                                       </a>
                                     ) : (
                                       <span className="text-[10px] text-slate-450 font-semibold px-3 py-2 border border-slate-100 rounded-xl bg-slate-50 select-none text-center">
@@ -1073,7 +1244,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <Pagination page={certPage} total={groupedCerts.length} pageSize={PAGE_SIZE} onPage={setCertPage} />
+              <Pagination page={certPage} total={groupedCerts.length} pageSize={PAGE_SIZE} onPage={setCertPage} t={t} />
             </div>
 
           )}
@@ -1113,11 +1284,10 @@ export default function AdminDashboard() {
 
                   {/* Headers */}
                   <div className="space-y-0.5">
-                    <p className="text-[7.5px] tracking-widest text-[#e8c97a] font-bold uppercase">
-                      O'ZBEKISTON RESPUBLIKASI SOG'LIQNI SAQLASH VAZIRLIGI LITSENZIYASI ASOSIDA
-                    </p>
-                    <h4 className="text-[11px] font-extrabold text-[#c9a84c] tracking-wide uppercase">
-                      "SAVDO AKADEMIYASI" O'QUV MARKAZI
+                    <h4 className="text-[9px] font-extrabold text-[#c9a84c] tracking-wider uppercase leading-tight">
+                      SANITARIYA-EPIDEMIOLOGIK OSOYISHTALIK<br />
+                      VA JAMOAT SALOMATLIGI QO'MITASINING<br />
+                      TOSHKENT SHAHAR BOSHQARMASI
                     </h4>
                   </div>
 
@@ -1170,14 +1340,16 @@ export default function AdminDashboard() {
                     <div className="text-center space-y-0.5 text-[8px] text-slate-300">
                       <div className="h-4"></div>
                       <p className="border-t border-slate-500 w-24 mx-auto pt-0.5"></p>
-                      <p className="font-bold text-white">Markaz rahbari</p>
-                      <p className="text-slate-400 italic">"Savdo Akademiyasi"</p>
+                      <p className="font-bold text-white">Malika Kudratxodjayeva</p>
+                      <p className="text-slate-400 italic text-[6px] max-w-[120px] mx-auto leading-tight">
+                        Toshkent shahar Sanitariya-epidemiologik osoyishtalik va jamoat salomatligi boshqarmasi boshlig'i
+                      </p>
                     </div>
                   </div>
 
                   {/* Footer verification text */}
                   <p className="text-[7px] text-[#e8c97a] opacity-80 pt-1.5 font-mono">
-                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: http://localhost:5173/verify/{previewCert.certificate_id}
+                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: https://shahar-ses.uz/verify/{previewCert.certificate_id}
                   </p>
                 </div>
               </div>
@@ -1205,6 +1377,14 @@ export default function AdminDashboard() {
       )}
 
       {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
+
+      {/* ── Bottom-right toast for password reset ── */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 bg-emerald-600 text-white text-sm font-semibold px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-500 animate-slideInRight" style={{animation:'slideUp 0.3s ease'}}>
+          <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

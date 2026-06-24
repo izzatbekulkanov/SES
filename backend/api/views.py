@@ -6,6 +6,9 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.http import HttpResponse
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -323,30 +326,33 @@ def course_add_student(request, course_id):
         return Response({"detail": "Ushbu kursni tahrirlash huquqi sizda yo'q."}, status=status.HTTP_403_FORBIDDEN)
 
     student_id = request.data.get('student_id')
-    if student_id:
-        student_user = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
-        # Associate student with this teacher's profile if not already
-        profile = StudentProfile.objects.filter(user=student_user).first()
-        if profile and profile.teacher != course.teacher and not is_admin_user(request.user):
-            # If student was under another teacher, we can update them or allow sharing
-            # In our system, one student profile belongs to one teacher, but let's check
-            pass
+    student_ids = request.data.get('student_ids')
+
+    if student_ids or student_id:
+        ids_to_process = student_ids if student_ids else [student_id]
+        last_profile = None
+        for s_id in ids_to_process:
+            student_user = get_object_or_404(User, id=s_id, role=User.Role.STUDENT)
+            profile = StudentProfile.objects.filter(user=student_user).first()
+            # Add to course
+            course.students.add(student_user)
+            # Initialize LessonProgress
+            LessonProgress.objects.get_or_create(
+                student=student_user,
+                course=course,
+                defaults={'completed_lessons': []}
+            )
+            if profile:
+                last_profile = profile
         
-        # Add to course
-        course.students.add(student_user)
-        # Initialize LessonProgress
-        LessonProgress.objects.get_or_create(
-            student=student_user,
-            course=course,
-            defaults={'completed_lessons': []}
-        )
-        if profile:
-            serializer = StudentSerializer(profile, context={'request': request})
+        if last_profile:
+            serializer = StudentSerializer(last_profile, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response({"detail": "Talaba profili topilmadi."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "O'quvchilar muvaffaqiyatli biriktirildi."})
 
     first_name = request.data.get('first_name')
     last_name = request.data.get('last_name')
+    father_name = request.data.get('father_name', '')
     email = request.data.get('email', '')
     phone_number = request.data.get('phone_number', '')
     organization = request.data.get('organization', '')
@@ -370,6 +376,7 @@ def course_add_student(request, course_id):
         passport_series=passport_series.upper(),
         passport_number=passport_number,
         jshshir=jshshir,
+        father_name=father_name,
         password='ses2026',
         role=User.Role.STUDENT,
         profile_picture=profile_picture
@@ -401,18 +408,19 @@ def course_add_student(request, course_id):
 @permission_classes([permissions.IsAuthenticated])
 def toggle_lesson(request, student_id):
     """
-    Toggle completed status of a lesson for a student in their course.
-    Payload: {"course_id": int, "lesson_id": int, "completed": bool}
+    Toggle completed status of a lesson or multiple lessons for a student in their course.
+    Payload: {"course_id": int, "lesson_id": int/null, "lesson_ids": list, "completed": bool}
     """
     if not is_teacher_user(request.user):
         return Response({"detail": "Darslar holatini o'zgartirish faqat o'qituvchilarga ruxsat berilgan."}, status=status.HTTP_403_FORBIDDEN)
 
     course_id = request.data.get('course_id')
     lesson_id = request.data.get('lesson_id')
+    lesson_ids = request.data.get('lesson_ids')
     completed = request.data.get('completed', False)
 
-    if not course_id or lesson_id is None:
-        return Response({"detail": "Course ID va Lesson ID kiritilishi shart."}, status=status.HTTP_400_BAD_REQUEST)
+    if not course_id:
+        return Response({"detail": "Course ID kiritilishi shart."}, status=status.HTTP_400_BAD_REQUEST)
 
     student_user = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
     course = get_object_or_404(Course, id=course_id)
@@ -424,14 +432,20 @@ def toggle_lesson(request, student_id):
     progress, created = LessonProgress.objects.get_or_create(student=student_user, course=course)
     completed_list = list(progress.completed_lessons)
 
-    if completed:
-        if lesson_id not in completed_list:
-            completed_list.append(lesson_id)
-    else:
-        if lesson_id in completed_list:
-            completed_list.remove(lesson_id)
+    # Determine target lesson ids
+    target_ids = []
+    if lesson_ids is not None:
+        target_ids = list(lesson_ids)
+    elif lesson_id is not None:
+        target_ids = [lesson_id]
 
-    progress.completed_lessons = completed_list
+    completed_set = set(completed_list)
+    if completed:
+        completed_set.update(target_ids)
+    else:
+        completed_set.difference_update(target_ids)
+
+    progress.completed_lessons = sorted(list(completed_set))
     progress.save()
 
     return Response({
@@ -482,12 +496,21 @@ def generate_certificate(request, student_id):
 
     # Generate certificate ID
     def generate_cert_id():
-        year = timezone.now().year
-        random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        cert_id = f"SES-{year}-{random_str}"
+        ids = Certificate.objects.values_list('certificate_id', flat=True)
+        numeric_vals = []
+        for cid in ids:
+            cid_upper = cid.upper()
+            if cid_upper.startswith("SES-"):
+                num_part = cid_upper[4:]
+                if num_part.isdigit():
+                    numeric_vals.append(int(num_part))
+            elif cid.isdigit():
+                numeric_vals.append(int(cid))
+        next_val = max(numeric_vals) + 1 if numeric_vals else 1
+        cert_id = f"SES-{next_val}"
         while Certificate.objects.filter(certificate_id=cert_id).exists():
-            random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-            cert_id = f"SES-{year}-{random_str}"
+            next_val += 1
+            cert_id = f"SES-{next_val}"
         return cert_id
 
     cert_id = generate_cert_id()
@@ -571,6 +594,44 @@ def verify_certificate(request, certificate_id):
 
 
 @api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def verify_certificates_by_passport(request):
+    """
+    Verify and retrieve certificates for a student by passport series and number.
+    No auth required. Publicly accessible.
+    """
+    passport_series = request.query_params.get('passport_series', '').strip()
+    passport_number = request.query_params.get('passport_number', '').strip()
+
+    if not passport_series or not passport_number:
+        return Response({"detail": "Pasport seriyasi va raqami to'liq bo'lishi kerak."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        student = User.objects.get(
+            role=User.Role.STUDENT,
+            passport_series__iexact=passport_series,
+            passport_number__iexact=passport_number
+        )
+    except User.DoesNotExist:
+        return Response({"detail": "Ushbu pasport ma'lumotlariga mos o'quvchi topilmadi."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Fetch all certificates
+    certs = Certificate.objects.filter(student=student)
+    
+    # Check and update expirations
+    now = timezone.now()
+    active_certs = []
+    for cert in certs:
+        if cert.is_active and cert.expires_at < now:
+            cert.is_active = False
+            cert.save()
+        active_certs.append(cert)
+
+    serializer = CertificateSerializer(active_certs, many=True, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def admin_teacher_stats(request):
     """
@@ -633,3 +694,182 @@ def admin_teacher_stats(request):
         })
 
     return Response(stats)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def download_excel_template(request):
+    """
+    Generate and download a clean Excel template (.xlsx) for importing students.
+    """
+    if not is_teacher_user(request.user):
+        return Response({"detail": "Faqat o'qituvchilarga ruxsat etiladi."}, status=status.HTTP_403_FORBIDDEN)
+        
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "O'quvchilar shabloni"
+    
+    # Columns
+    headers = [
+        "Familiya *", 
+        "Ism *", 
+        "Otasining ismi *", 
+        "Pasport seriyasi (2 ta harf) *", 
+        "Pasport raqami (7 ta raqam) *", 
+        "Telefon raqami (ixtiyoriy, masalan: +998901234567)"
+    ]
+    
+    # Add title row
+    ws.append(["Tizimga o'quvchilarni qo'shish uchun shablon (* belgisi bor maydonlar majburiy)"])
+    ws.merge_cells("A1:F1")
+    ws["A1"].font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    ws["A1"].fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 25
+    
+    # Add headers row
+    ws.append(headers)
+    ws.row_dimensions[2].height = 20
+    header_fill = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
+    header_font = Font(name="Calibri", size=10, bold=True)
+    
+    for col_num in range(1, 7):
+        cell = ws.cell(row=2, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        
+    # Sample data
+    ws.append(["Valiyev", "Ali", "Umarovich", "AA", "1234567", "+998901234567"])
+    ws.append(["Karimova", "Zilola", "Anvarovna", "AB", "7654321", ""])
+    
+    # Set column widths
+    ws.column_dimensions['A'].width = 18
+    ws.column_dimensions['B'].width = 18
+    ws.column_dimensions['C'].width = 18
+    ws.column_dimensions['D'].width = 25
+    ws.column_dimensions['E'].width = 25
+    ws.column_dimensions['F'].width = 30
+    
+    # Return Excel file
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=ses_oquvchilar_shablon.xlsx"
+    wb.save(response)
+    return response
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+@transaction.atomic
+def teacher_import_excel(request, course_id):
+    """
+    Import students from uploaded Excel file and enroll them into the course.
+    """
+    if not is_teacher_user(request.user):
+        return Response({"detail": "O'quvchilarni import qilish faqat o'qituvchilarga ruxsat etiladi."}, status=status.HTTP_403_FORBIDDEN)
+        
+    course = get_object_or_404(Course, id=course_id)
+    if not is_admin_user(request.user) and course.teacher != request.user:
+        return Response({"detail": "Ushbu kursni tahrirlash huquqi sizda yo'q."}, status=status.HTTP_403_FORBIDDEN)
+        
+    file_obj = request.FILES.get('file')
+    if not file_obj:
+        return Response({"detail": "Fayl yuborilmadi."}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if not file_obj.name.endswith('.xlsx'):
+        return Response({"detail": "Faqat .xlsx formatidagi Excel fayllar qabul qilinadi."}, status=status.HTTP_400_BAD_REQUEST)
+        
+    try:
+        wb = openpyxl.load_workbook(file_obj, data_only=True)
+        ws = wb.active
+        
+        # Read from row 3 (since row 1 is title, row 2 is headers)
+        imported_count = 0
+        errors = []
+        
+        row_num = 2
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            row_num += 1
+            # Skip empty rows
+            if not row or not any(row):
+                continue
+                
+            last_name = str(row[0]).strip() if row[0] is not None else ""
+            first_name = str(row[1]).strip() if row[1] is not None else ""
+            father_name = str(row[2]).strip() if row[2] is not None else ""
+            passport_series = str(row[3]).strip() if row[3] is not None else ""
+            passport_number = str(row[4]).strip() if row[4] is not None else ""
+            phone_number = str(row[5]).strip() if row[5] is not None else ""
+            
+            # Validation
+            if not last_name or not first_name or not father_name or not passport_series or not passport_number:
+                errors.append(f"{row_num}-qatorda xatolik: Majburiy maydonlar to'ldirilmagan.")
+                continue
+                
+            if len(passport_series) != 2:
+                errors.append(f"{row_num}-qatorda xatolik: Pasport seriyasi 2 ta harf bo'lishi shart.")
+                continue
+                
+            if len(passport_number) != 7 or not passport_number.isdigit():
+                errors.append(f"{row_num}-qatorda xatolik: Pasport raqami 7 ta raqam bo'lishi shart.")
+                continue
+                
+            # Check if student already exists by passport series & number
+            student_user = User.objects.filter(
+                passport_series__iexact=passport_series,
+                passport_number=passport_number,
+                role=User.Role.STUDENT
+            ).first()
+            
+            if not student_user:
+                # Create user
+                username = generate_username(first_name, last_name)
+                student_user = User.objects.create_user(
+                    username=username,
+                    first_name=first_name,
+                    last_name=last_name,
+                    father_name=father_name,
+                    passport_series=passport_series.upper(),
+                    passport_number=passport_number,
+                    password='ses2026',
+                    role=User.Role.STUDENT
+                )
+                # Create profile
+                StudentProfile.objects.create(
+                    user=student_user,
+                    teacher=course.teacher,
+                    phone_number=phone_number,
+                    organization=""
+                )
+            else:
+                # Ensure profile exists
+                profile, _ = StudentProfile.objects.get_or_create(
+                    user=student_user,
+                    defaults={'teacher': course.teacher, 'phone_number': phone_number, 'organization': ""}
+                )
+                
+            # Enroll to course
+            if not course.students.filter(id=student_user.id).exists():
+                course.students.add(student_user)
+                # Initialize progress
+                LessonProgress.objects.get_or_create(
+                    student=student_user,
+                    course=course,
+                    defaults={'completed_lessons': []}
+                )
+                imported_count += 1
+                
+        if errors and imported_count == 0:
+            return Response({"detail": "\n".join(errors)}, status=status.HTTP_400_BAD_REQUEST)
+            
+        return Response({
+            "detail": f"{imported_count} ta o'quvchi muvaffaqiyatli import qilindi.",
+            "imported_count": imported_count,
+            "errors": errors
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({"detail": f"Faylni o'qishda xatolik yuz berdi: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+

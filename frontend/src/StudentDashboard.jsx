@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
-const API = 'http://localhost:8000/api'
+const API = 'http://127.0.0.1:8000/api'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -40,8 +40,58 @@ const IC = {
 const getMediaUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `http://localhost:8000${url}`
+  return `http://127.0.0.1:8000${url}`
 }
+
+
+const translations = {
+  uz: {
+    studentRole: "Talaba",
+    changePassword: "Parolni o'zgartirish",
+    logout: "Chiqish",
+    profilePic: "Profil rasmi",
+    father: "Otasi:",
+    passport: "Pasport",
+    jshshir: "JSHSHIR (14 raqam)",
+    birthDate: "Tug'ilgan sana",
+    phone: "Telefon",
+    org: "Tashkilot / Ish joyi",
+    email: "Email",
+    loading: "Yuklanmoqda...",
+    progressGraph: "Darslar jadvali (progress)",
+    enrolledCourses: "Kursga yozilgan darslar",
+    ongoingCourses: "Davom etayotgan darslar",
+    completedCourses: "Yakunlangan darslar",
+    allCompleted: "Barcha kurslar yakunlangan",
+    downloadCert: "Sertifikatni yuklab olish",
+    noCourses: "Hozircha hech qanday kursga yozilmagansiz.",
+    lessons36: "36 soat dars",
+    downloadPdf: "Yuklab olish (PDF)"
+  },
+  ru: {
+    studentRole: "Студент",
+    changePassword: "Сменить пароль",
+    logout: "Выйти",
+    profilePic: "Фото профиля",
+    father: "Отец:",
+    passport: "Паспорт",
+    jshshir: "ПИНФЛ (14 цифр)",
+    birthDate: "Дата рождения",
+    phone: "Телефон",
+    org: "Организация / Место работы",
+    email: "Email",
+    loading: "Загрузка...",
+    progressGraph: "График уроков (прогресс)",
+    enrolledCourses: "Мои курсы",
+    ongoingCourses: "Текущие курсы",
+    completedCourses: "Завершенные курсы",
+    allCompleted: "Все курсы завершены",
+    downloadCert: "Скачать сертификат",
+    noCourses: "Пока вы не записаны ни на один курс.",
+    lessons36: "36 часов занятий",
+    downloadPdf: "Скачать (PDF)"
+  }
+};
 
 export default function StudentDashboard() {
   const [coursesProgress, setCoursesProgress] = useState([])
@@ -49,6 +99,8 @@ export default function StudentDashboard() {
   const [error, setError] = useState('')
   const [showProfile, setShowProfile] = useState(false)
   const [previewCert, setPreviewCert] = useState(null)
+  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'uz')
+  const t = translations[lang] || translations.uz;
   
   const token = localStorage.getItem('access_token')
   const navigate = useNavigate()
@@ -56,16 +108,7 @@ export default function StudentDashboard() {
   // Student Profile state (loads from localStorage, updates from backend /auth/me)
   const [profile, setProfile] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'))
 
-  useEffect(() => {
-    if (!token) {
-      navigate('/login')
-      return
-    }
-    fetchProgress()
-    fetchProfile()
-  }, [])
-
-  const fetchProfile = async () => {
+  async function fetchProfile() {
     try {
       const response = await fetch(`${API}/auth/me/`, {
         headers: {
@@ -80,7 +123,7 @@ export default function StudentDashboard() {
     } catch { /* silent */ }
   }
 
-  const fetchProgress = async () => {
+  async function fetchProgress() {
     setLoading(true)
     setError('')
     try {
@@ -99,15 +142,28 @@ export default function StudentDashboard() {
           setError('Ma’lumotlarni yuklashda xatolik yuz berdi.')
         }
       }
-    } catch (err) {
+    } catch {
       setError('Serverga ulanishda xatolik yuz berdi.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLogout = () => {
-    localStorage.clear()
+  useEffect(() => {
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    setTimeout(() => {
+      fetchProgress()
+      fetchProfile()
+    }, 0)
+  }, [])
+
+  function handleLogout() {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
     navigate('/login')
   }
 
@@ -116,7 +172,7 @@ export default function StudentDashboard() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-slate-600 font-semibold text-sm">Yuklanmoqda...</div>
+          <div className="text-slate-600 font-semibold text-sm">{t.loading}</div>
         </div>
       </div>
     )
@@ -135,18 +191,29 @@ export default function StudentDashboard() {
             <div className="flex items-center space-x-3">
               <img src="/logo.png" alt="SES Logo" className="w-8 h-8 object-contain" />
               <span className="text-lg font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent uppercase tracking-wider">
-                Savdo akademiyasi
+                SES PORTAL
               </span>
               <span className="bg-violet-50 text-violet-700 text-[10px] px-2.5 py-0.5 rounded-full font-bold border border-violet-100 uppercase">
                 Talaba
               </span>
             </div>
+            
             <div className="flex items-center space-x-3">
+              <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200 mr-2">
+                <button onClick={() => { setLang('uz'); localStorage.setItem('lang', 'uz'); }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${lang === 'uz' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                  UZ
+                </button>
+                <button onClick={() => { setLang('ru'); localStorage.setItem('lang', 'ru'); }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${lang === 'ru' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                  RU
+                </button>
+              </div>
               <button 
                 onClick={() => setShowProfile(true)}
                 className="bg-slate-50 hover:bg-violet-50 border border-slate-200 hover:border-violet-200 text-slate-700 hover:text-violet-700 text-xs px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5"
               >
-                <Icon d={IC.profile} size={13} /> Parolni o'zgartirish
+                <Icon d={IC.profile} size={13} /> {t.changePassword}
               </button>
               <button 
                 onClick={handleLogout}
@@ -168,7 +235,7 @@ export default function StudentDashboard() {
             {profile.profile_picture ? (
               <img 
                 src={getMediaUrl(profile.profile_picture)} 
-                alt="Profil rasmi" 
+                alt="{t.profilePic}" 
                 className="w-24 h-24 rounded-full object-cover border-2 border-violet-100 shadow-md mb-4 shrink-0" 
               />
             ) : (
@@ -181,7 +248,7 @@ export default function StudentDashboard() {
               {profile.first_name} {profile.last_name}
             </h2>
             {profile.father_name && (
-              <p className="text-xs text-slate-400 mt-0.5 text-center font-medium">Otasi: {profile.father_name}</p>
+              <p className="text-xs text-slate-400 mt-0.5 text-center font-medium">{t.father} {profile.father_name}</p>
             )}
             <code className="text-[10px] text-violet-600 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full font-bold mt-2 font-mono">@{profile.username}</code>
 
@@ -192,7 +259,7 @@ export default function StudentDashboard() {
                 <div className="flex items-start gap-2.5">
                   <Icon d={IC.passport} size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Pasport</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">{t.passport}</span>
                     <span className="font-mono text-slate-700 font-extrabold">{profile.passport_series} {profile.passport_number}</span>
                   </div>
                 </div>
@@ -202,7 +269,7 @@ export default function StudentDashboard() {
                 <div className="flex items-start gap-2.5">
                   <span className="text-[9px] font-black text-slate-400 shrink-0 w-5 mt-1 font-mono">JSH</span>
                   <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">JSHSHIR (14 raqam)</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">{t.jshshir}</span>
                     <span className="font-mono text-slate-700 font-extrabold tracking-wider">{profile.jshshir}</span>
                   </div>
                 </div>
@@ -212,7 +279,7 @@ export default function StudentDashboard() {
                 <div className="flex items-start gap-2.5">
                   <Icon d={IC.calendar} size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Tug'ilgan sana</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">{t.birthDate}</span>
                     <span className="text-slate-700 font-semibold">{profile.birth_date}</span>
                   </div>
                 </div>
@@ -222,7 +289,7 @@ export default function StudentDashboard() {
                 <div className="flex items-start gap-2.5">
                   <Icon d={IC.phone} size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Telefon</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">{t.phone}</span>
                     <span className="text-slate-700 font-semibold">{profile.phone_number}</span>
                   </div>
                 </div>
@@ -232,7 +299,7 @@ export default function StudentDashboard() {
                 <div className="flex items-start gap-2.5">
                   <Icon d={IC.building} size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Tashkilot / Ish joyi</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">{t.org}</span>
                     <span className="text-slate-700 font-semibold truncate block" title={profile.organization}>{profile.organization}</span>
                   </div>
                 </div>
@@ -242,7 +309,7 @@ export default function StudentDashboard() {
                 <div className="flex items-start gap-2.5">
                   <Icon d={IC.mail} size={14} className="text-slate-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Email</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">{t.email}</span>
                     <span className="text-slate-700 font-semibold truncate block" title={profile.email}>{profile.email}</span>
                   </div>
                 </div>
@@ -317,7 +384,7 @@ export default function StudentDashboard() {
                 )}
               </div>
 
-              {/* SECTION 2: Yakunlangan darslar (Completed) */}
+              {/* SECTION 2: {t.completedCourses} (Completed) */}
               <div className="space-y-4">
                 <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -326,7 +393,7 @@ export default function StudentDashboard() {
 
                 {completedCourses.length === 0 ? (
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 text-center text-slate-400 text-xs shadow-sm">
-                    Yakunlangan darslar yo'q.
+                    {t.completedCourses} yo'q.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
@@ -369,7 +436,7 @@ export default function StudentDashboard() {
                                   rel="noreferrer"
                                   className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition"
                                 >
-                                  <Icon d={IC.download} size={11} /> Yuklab olish (PDF)
+                                  <Icon d={IC.download} size={11} /> {t.downloadPdf}
                                 </a>
                                 <button 
                                   onClick={() => setPreviewCert({ ...cert, student_name: `${profile.first_name} ${profile.last_name}`, course_name: c.course_title })}
@@ -424,11 +491,10 @@ export default function StudentDashboard() {
 
                   {/* Headers */}
                   <div className="space-y-0.5">
-                    <p className="text-[7.5px] tracking-widest text-[#e8c97a] font-bold uppercase">
-                      O'ZBEKISTON RESPUBLIKASI SOG'LIQNI SAQLASH VAZIRLIGI LITSENZIYASI ASOSIDA
-                    </p>
-                    <h4 className="text-[11px] font-extrabold text-[#c9a84c] tracking-wide uppercase">
-                      "SAVDO AKADEMIYASI" O'QUV MARKAZI
+                    <h4 className="text-[9px] font-extrabold text-[#c9a84c] tracking-wider uppercase leading-tight">
+                      SANITARIYA-EPIDEMIOLOGIK OSOYISHTALIK<br />
+                      VA JAMOAT SALOMATLIGI QO'MITASINING<br />
+                      TOSHKENT SHAHAR BOSHQARMASI
                     </h4>
                   </div>
 
@@ -481,14 +547,16 @@ export default function StudentDashboard() {
                     <div className="text-center space-y-0.5 text-[8px] text-slate-300">
                       <div className="h-4"></div>
                       <p className="border-t border-slate-500 w-24 mx-auto pt-0.5"></p>
-                      <p className="font-bold text-white">Markaz rahbari</p>
-                      <p className="text-slate-400 italic">"Savdo Akademiyasi"</p>
+                      <p className="font-bold text-white">Malika Kudratxodjayeva</p>
+                      <p className="text-slate-400 italic text-[6px] max-w-[120px] mx-auto leading-tight">
+                        Toshkent shahar Sanitariya-epidemiologik osoyishtalik va jamoat salomatligi boshqarmasi boshlig'i
+                      </p>
                     </div>
                   </div>
 
                   {/* Footer verification text */}
                   <p className="text-[7px] text-[#e8c97a] opacity-80 pt-1.5 font-mono">
-                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: http://localhost:5173/verify/{previewCert.certificate_id}
+                    Sertifikatning haqiqiyligini tekshirish uchun QR kodni skanerlang yoki: https://shahar-ses.uz/verify/{previewCert.certificate_id}
                   </p>
                 </div>
               </div>

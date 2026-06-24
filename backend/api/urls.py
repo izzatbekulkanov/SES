@@ -15,8 +15,11 @@ from .views import (
     toggle_lesson,
     generate_certificate,
     verify_certificate,
+    verify_certificates_by_passport,
     student_progress,
-    admin_all_certificates
+    admin_all_certificates,
+    teacher_import_excel,
+    download_excel_template
 )
 
 urlpatterns = [
@@ -35,6 +38,8 @@ urlpatterns = [
     # Teacher operations
     path('teacher/courses/', teacher_courses, name='teacher_courses'),
     path('teacher/courses/<int:course_id>/add-student/', course_add_student, name='course_add_student'),
+    path('teacher/courses/<int:course_id>/import-excel/', teacher_import_excel, name='teacher_import_excel'),
+    path('teacher/courses/download-template/', download_excel_template, name='download_excel_template'),
     path('teacher/students/', teacher_students, name='teacher_students'),
     path('teacher/students/<int:student_id>/toggle-lesson/', toggle_lesson, name='toggle_lesson'),
     path('teacher/students/<int:student_id>/generate-certificate/', generate_certificate, name='generate_certificate'),
@@ -44,4 +49,5 @@ urlpatterns = [
     
     # Public verification
     path('certificates/verify/<str:certificate_id>/', verify_certificate, name='verify_certificate'),
+    path('certificates/verify-passport/', verify_certificates_by_passport, name='verify_certificates_by_passport'),
 ]

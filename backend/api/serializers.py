@@ -49,6 +49,7 @@ class StudentSerializer(serializers.ModelSerializer):
     passport_series = serializers.CharField(source='user.passport_series', required=False, allow_blank=True)
     passport_number = serializers.CharField(source='user.passport_number', required=False, allow_blank=True)
     jshshir = serializers.CharField(source='user.jshshir', required=False, allow_blank=True)
+    father_name = serializers.CharField(source='user.father_name', required=False, allow_blank=True)
     profile_picture = serializers.SerializerMethodField()
 
     def get_profile_picture(self, obj):
@@ -71,6 +72,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'username', 
             'first_name', 
             'last_name', 
+            'father_name',
             'email', 
             'passport_series', 
             'passport_number', 
@@ -116,11 +118,21 @@ class StudentSerializer(serializers.ModelSerializer):
                     pdf_url = request.build_absolute_uri(pdf_url)
                 if qr_url:
                     qr_url = request.build_absolute_uri(qr_url)
+            # Word file URL
+            import os
+            from django.conf import settings
+            word_rel = f"certificates/words/{c.certificate_id}.docx"
+            word_path = os.path.join(settings.MEDIA_ROOT, word_rel)
+            word_url = None
+            if os.path.exists(word_path):
+                word_url_rel = f"{settings.MEDIA_URL}{word_rel}"
+                word_url = request.build_absolute_uri(word_url_rel) if request else word_url_rel
             res.append({
                 "course_id": c.course_id,
                 "course_name": c.course.title,
                 "certificate_id": c.certificate_id,
                 "pdf_file": pdf_url,
+                "word_file": word_url,
                 "qr_code_image": qr_url,
                 "issued_at": c.issued_at.strftime('%d.%m.%Y') if c.issued_at else None,
                 "expires_at": c.expires_at.strftime('%d.%m.%Y') if c.expires_at else None,
@@ -148,10 +160,14 @@ class CertificateSerializer(serializers.ModelSerializer):
     course_name = serializers.CharField(source='course.title')
     issued_date = serializers.SerializerMethodField()
     expiry_date = serializers.SerializerMethodField()
+    word_file = serializers.SerializerMethodField()
+    raw_expires_at = serializers.DateTimeField(source='expires_at', read_only=True)
 
     class Meta:
         model = Certificate
-        fields = ('certificate_id', 'student_name', 'student_username', 'student_picture', 'course_name', 'qr_code_image', 'pdf_file', 'issued_at', 'expires_at', 'is_active', 'issued_date', 'expiry_date')
+        fields = ('certificate_id', 'student_name', 'student_username', 'student_picture',
+                  'course_name', 'qr_code_image', 'pdf_file', 'word_file',
+                  'issued_at', 'expires_at', 'raw_expires_at', 'is_active', 'issued_date', 'expiry_date')
 
     def get_student_name(self, obj):
         full_name = obj.student.get_full_name()
@@ -169,3 +185,15 @@ class CertificateSerializer(serializers.ModelSerializer):
 
     def get_expiry_date(self, obj):
         return obj.expires_at.strftime('%d.%m.%Y') if obj.expires_at else None
+
+    def get_word_file(self, obj):
+        """Return absolute URL to the Word (.docx) file if it exists in media."""
+        import os
+        from django.conf import settings
+        request = self.context.get('request')
+        word_rel = f"certificates/words/{obj.certificate_id}.docx"
+        word_path = os.path.join(settings.MEDIA_ROOT, word_rel)
+        if os.path.exists(word_path):
+            url = f"{settings.MEDIA_URL}{word_rel}"
+            return request.build_absolute_uri(url) if request else url
+        return None
