@@ -1203,14 +1203,10 @@ export default function AdminDashboard() {
                                 <div className="flex flex-wrap gap-1.5">
                                   <span className="bg-[#f0f9ff] text-blue-700 border border-blue-100 text-[9px] px-2 py-0.5 rounded font-medium flex items-center gap-1">
                                     <Icon d={ICONS.calendar} size={10} className="text-blue-500" />
-                                    {course.start_date}
-                                  </span>
-                                  <span className="bg-[#fffbeb] text-amber-700 border border-amber-100 text-[9px] px-2 py-0.5 rounded font-medium flex items-center gap-1">
-                                    <Icon d={ICONS.calendar} size={10} className="text-amber-500" />
-                                    {course.end_date}
+                                    {course.start_date ? course.start_date.split('-')[0] + ' ' + (lang === 'ru' ? 'год' : 'yil') : '—'}
                                   </span>
                                   <span className="bg-slate-50 text-slate-600 border border-slate-100 text-[9px] px-2 py-0.5 rounded font-medium font-mono">
-                                    {course.total_lessons} dars
+                                    {course.total_lessons} {lang === 'ru' ? 'часов' : 'soat'}
                                   </span>
                                 </div>
                                 <div>

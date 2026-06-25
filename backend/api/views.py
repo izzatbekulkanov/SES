@@ -181,33 +181,15 @@ def admin_all_certificates(request):
     if is_admin:
         certs = Certificate.objects.select_related('student', 'course').order_by('-issued_at')
     else:
-        certs = Certificate.objects.filter(course__teacher=request.user).select_related('student', 'course').order_by('-issued_at')
+        certs = Certificate.objects.filter(student__student_profile__teacher=request.user).select_related('student', 'course').order_by('-issued_at')
 
     if search:
-        if is_admin:
-            certs = certs.filter(
-                certificate_id__icontains=search
-            ) | Certificate.objects.filter(
-                student__first_name__icontains=search
-            ) | Certificate.objects.filter(
-                student__last_name__icontains=search
-            ) | Certificate.objects.filter(
-                course__title__icontains=search
-            )
-        else:
-            certs = certs.filter(
-                course__teacher=request.user,
-                certificate_id__icontains=search
-            ) | Certificate.objects.filter(
-                course__teacher=request.user,
-                student__first_name__icontains=search
-            ) | Certificate.objects.filter(
-                course__teacher=request.user,
-                student__last_name__icontains=search
-            ) | Certificate.objects.filter(
-                course__teacher=request.user,
-                course__title__icontains=search
-            )
+        from django.db.models import Q
+        q_search = Q(certificate_id__icontains=search) | \
+                   Q(student__first_name__icontains=search) | \
+                   Q(student__last_name__icontains=search) | \
+                   Q(course__title__icontains=search)
+        certs = certs.filter(q_search)
         certs = certs.distinct().order_by('-issued_at')
 
     result = []
@@ -251,37 +233,32 @@ def admin_all_certificates(request):
 @permission_classes([permissions.IsAuthenticated])
 def teacher_courses(request):
     """
-    GET: List all courses created by the logged-in teacher (or all courses for admin).
-    POST: Create a new Course.
+    GET: List all courses in the system.
+    POST: Create a new Course by selecting a year.
     """
     if not is_teacher_user(request.user):
         return Response({"detail": "Darslarni boshqarish faqat o'qituvchilarga ruxsat berilgan."}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'GET':
-        if is_admin_user(request.user):
-            courses = Course.objects.all().order_by('-id')
-        else:
-            courses = Course.objects.filter(teacher=request.user).order_by('-id')
+        courses = Course.objects.all().order_by('-id')
         serializer = CourseSerializer(courses, many=True)
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        title = request.data.get('title')
-        description = request.data.get('description', '')
-        start_date = request.data.get('start_date')
-        end_date = request.data.get('end_date')
-        total_lessons = request.data.get('total_lessons', 10)
+        year = request.data.get('year')
+        if not year:
+            return Response({"detail": "Yil tanlanishi shart."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not title or not start_date or not end_date:
-            return Response({"detail": "Kurs nomi, boshlanish va tugash sanalari majburiy."}, status=status.HTTP_400_BAD_REQUEST)
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
 
         course = Course.objects.create(
-            title=title,
-            description=description,
+            title="STERILIZATSIYA VA AVTOKLAVDA ISHLASH TARTIBI",
+            description="",
             teacher=request.user,
             start_date=start_date,
             end_date=end_date,
-            total_lessons=int(total_lessons)
+            total_lessons=36
         )
 
         serializer = CourseSerializer(course)
@@ -298,15 +275,10 @@ def teacher_students(request):
     if not is_teacher_user(request.user):
         return Response({"detail": "Talabalarni boshqarish faqat o'qituvchilarga ruxsat berilgan."}, status=status.HTTP_403_FORBIDDEN)
 
-    get_all = request.GET.get('all', 'false').lower() == 'true'
-
-    if is_admin_user(request.user) or get_all:
+    if is_admin_user(request.user):
         profiles = StudentProfile.objects.all().distinct().order_by('-id')
     else:
-        from django.db.models import Q
-        profiles = StudentProfile.objects.filter(
-            Q(teacher=request.user) | Q(user__assigned_courses__teacher=request.user)
-        ).distinct().order_by('-id')
+        profiles = StudentProfile.objects.filter(teacher=request.user).distinct().order_by('-id')
         
     serializer = StudentSerializer(profiles, many=True, context={'request': request})
     return Response(serializer.data)
@@ -325,8 +297,6 @@ def course_add_student(request, course_id):
         return Response({"detail": "O'quvchilarni kursga qo'shish faqat o'qituvchilarga ruxsat etiladi."}, status=status.HTTP_403_FORBIDDEN)
 
     course = get_object_or_404(Course, id=course_id)
-    if not is_admin_user(request.user) and course.teacher != request.user:
-        return Response({"detail": "Ushbu kursni tahrirlash huquqi sizda yo'q."}, status=status.HTTP_403_FORBIDDEN)
 
     student_id = request.data.get('student_id')
     student_ids = request.data.get('student_ids')
@@ -388,7 +358,7 @@ def course_add_student(request, course_id):
     # 2. Create StudentProfile
     profile = StudentProfile.objects.create(
         user=student_user,
-        teacher=course.teacher,
+        teacher=request.user,
         phone_number=phone_number,
         organization=organization
     )
@@ -429,8 +399,9 @@ def toggle_lesson(request, student_id):
     course = get_object_or_404(Course, id=course_id)
 
     # Check permission
-    if not is_admin_user(request.user) and course.teacher != request.user:
-        return Response({"detail": "Ushbu kurs o'quvchilarini boshqarishga huquqingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
+    profile = getattr(student_user, 'student_profile', None)
+    if not is_admin_user(request.user) and (not profile or profile.teacher != request.user):
+        return Response({"detail": "Ushbu o'quvchini boshqarishga huquqingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
 
     progress, created = LessonProgress.objects.get_or_create(student=student_user, course=course)
     completed_list = list(progress.completed_lessons)
@@ -475,8 +446,9 @@ def generate_certificate(request, student_id):
     student_user = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
     course = get_object_or_404(Course, id=course_id)
 
-    if not is_admin_user(request.user) and course.teacher != request.user:
-        return Response({"detail": "Ushbu kurs sertifikatini yaratishga huquqingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
+    profile = getattr(student_user, 'student_profile', None)
+    if not is_admin_user(request.user) and (not profile or profile.teacher != request.user):
+        return Response({"detail": "Ushbu o'quvchi sertifikatini yaratishga huquqingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
 
     # Check if certificate exists
     if Certificate.objects.filter(student=student_user, course=course).exists():
@@ -656,8 +628,8 @@ def admin_teacher_stats(request):
         courses = Course.objects.filter(teacher=teacher)
         courses_count = courses.count()
         students_count = StudentProfile.objects.filter(teacher=teacher).count()
-        total_enrollments = sum(course.students.count() for course in courses)
-        certificates_count = Certificate.objects.filter(course__teacher=teacher).count()
+        total_enrollments = Course.students.through.objects.filter(user__student_profile__teacher=teacher).count()
+        certificates_count = Certificate.objects.filter(student__student_profile__teacher=teacher).count()
 
         courses_list = []
         for course in courses:
@@ -776,8 +748,6 @@ def teacher_import_excel(request, course_id):
         return Response({"detail": "O'quvchilarni import qilish faqat o'qituvchilarga ruxsat etiladi."}, status=status.HTTP_403_FORBIDDEN)
         
     course = get_object_or_404(Course, id=course_id)
-    if not is_admin_user(request.user) and course.teacher != request.user:
-        return Response({"detail": "Ushbu kursni tahrirlash huquqi sizda yo'q."}, status=status.HTTP_403_FORBIDDEN)
         
     file_obj = request.FILES.get('file')
     if not file_obj:
@@ -844,7 +814,7 @@ def teacher_import_excel(request, course_id):
                 # Create profile
                 StudentProfile.objects.create(
                     user=student_user,
-                    teacher=course.teacher,
+                    teacher=request.user,
                     phone_number=phone_number,
                     organization=""
                 )
@@ -852,7 +822,7 @@ def teacher_import_excel(request, course_id):
                 # Ensure profile exists
                 profile, _ = StudentProfile.objects.get_or_create(
                     user=student_user,
-                    defaults={'teacher': course.teacher, 'phone_number': phone_number, 'organization': ""}
+                    defaults={'teacher': request.user, 'phone_number': phone_number, 'organization': ""}
                 )
                 
             # Enroll to course
@@ -922,12 +892,10 @@ def teacher_delete_student(request, student_id):
         
     student_user = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
     
-    # Check if student is taught by this teacher or is in one of their courses
+    # Check if student is taught by this teacher
     is_authorized = is_admin_user(request.user)
     if not is_authorized:
-        profile_exists = StudentProfile.objects.filter(user=student_user, teacher=request.user).exists()
-        course_exists = Course.objects.filter(teacher=request.user, students=student_user).exists()
-        is_authorized = profile_exists or course_exists
+        is_authorized = StudentProfile.objects.filter(user=student_user, teacher=request.user).exists()
         
     if not is_authorized:
         return Response({"detail": "Ushbu o'quvchini o'chirishga ruxsatingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
@@ -965,7 +933,8 @@ def admin_delete_certificate(request, certificate_id):
         
     cert = get_object_or_404(Certificate, certificate_id=certificate_id)
     
-    if not is_admin and cert.course.teacher != request.user:
+    profile = getattr(cert.student, 'student_profile', None)
+    if not is_admin and (not profile or profile.teacher != request.user):
         return Response({"detail": "Faqat o'zingizning o'quvchilaringiz sertifikatini o'chira olasiz."}, status=status.HTTP_403_FORBIDDEN)
     
     # Delete physical files from disk
@@ -1008,9 +977,9 @@ def admin_export_certificates_excel(request):
     if is_admin:
         certs = Certificate.objects.select_related('student', 'course', 'course__teacher').order_by('-issued_at')
         if teacher_id:
-            certs = certs.filter(course__teacher_id=teacher_id)
+            certs = certs.filter(student__student_profile__teacher_id=teacher_id)
     else:
-        certs = Certificate.objects.filter(course__teacher=request.user).select_related('student', 'course', 'course__teacher').order_by('-issued_at')
+        certs = Certificate.objects.filter(student__student_profile__teacher=request.user).select_related('student', 'course', 'course__teacher').order_by('-issued_at')
     
     if course_id:
         certs = certs.filter(course_id=course_id)
@@ -1201,7 +1170,8 @@ def admin_edit_certificate_id(request, certificate_id):
 
     cert = get_object_or_404(Certificate, certificate_id=certificate_id)
 
-    if not is_admin and cert.course.teacher != request.user:
+    profile = getattr(cert.student, 'student_profile', None)
+    if not is_admin and (not profile or profile.teacher != request.user):
         return Response({"detail": "Faqat o'zingizning o'quvchilaringiz sertifikatini tahrirlashingiz mumkin."}, status=status.HTTP_403_FORBIDDEN)
 
     # 1. Delete old physical files from disk

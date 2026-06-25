@@ -251,11 +251,7 @@ export default function TeacherDashboard() {
   const [existingSearch, setExistingSearch] = useState('')
 
   // ── Course form ───────────────────────────────────────────────────────────
-  const [courseTitle, setCourseTitle] = useState('')
-  const [courseDesc, setCourseDesc] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [totalLessons, setTotalLessons] = useState(10)
+  const [courseYear, setCourseYear] = useState(() => new Date().getFullYear().toString())
   const [courseErr, setCourseErr] = useState('')
   const [courseLoading, setCourseLoading] = useState(false)
 
@@ -331,16 +327,16 @@ export default function TeacherDashboard() {
       const r = await fetch(`${API}/teacher/courses/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title: courseTitle, description: courseDesc, start_date: startDate, end_date: endDate, total_lessons: parseInt(totalLessons) })
+        body: JSON.stringify({ year: parseInt(courseYear) })
       })
       if (r.ok) {
         const nc = await r.json()
-        setCourseTitle(''); setCourseDesc(''); setStartDate(''); setEndDate(''); setTotalLessons(10)
+        setCourseYear(new Date().getFullYear().toString())
         setShowAddCourse(false); await fetchCourses(); setSelectedCourse(nc)
       } else {
-        const d = await r.json(); setCourseErr(d.detail || 'Kurs yaratishda xatolik.')
+        const d = await r.json(); setCourseErr(d.detail || (lang === 'ru' ? 'Ошибка при создании курса.' : 'Kurs yaratishda xatolik.'))
       }
-    } catch { setCourseErr('Serverga ulanishda xatolik.') }
+    } catch { setCourseErr(lang === 'ru' ? 'Ошибка сети.' : 'Serverga ulanishda xatolik.') }
     finally { setCourseLoading(false) }
   }
 
@@ -916,7 +912,7 @@ export default function TeacherDashboard() {
                         }`}>
                         <p className="font-semibold text-slate-900 text-sm leading-snug mb-1">{course.title}</p>
                         <div className="flex items-center justify-between text-[10px] text-slate-500">
-                          <span>{course.start_date} – {course.end_date}</span>
+                          <span>{course.start_date ? course.start_date.split('-')[0] + ' ' + (lang === 'ru' ? 'год' : 'yil') : '—'}</span>
                           <span className="bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold text-slate-600">{course.student_count} ta</span>
                         </div>
                       </div>
@@ -1145,11 +1141,11 @@ export default function TeacherDashboard() {
                           <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2 text-xs text-slate-500">
                             <span className="flex items-center gap-1.5">
                               <Icon d={IC.calendar} size={13} className="text-slate-400 shrink-0" />
-                              {selectedCourse.start_date} – {selectedCourse.end_date}
+                              {selectedCourse.start_date ? selectedCourse.start_date.split('-')[0] + ' ' + (lang === 'ru' ? 'год' : 'yil') : '—'}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <Icon d={IC.courses} size={13} className="text-slate-400 shrink-0" />
-                              {selectedCourse.total_lessons} ta dars
+                              {selectedCourse.total_lessons} {lang === 'ru' ? 'часов' : 'soat'}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <Icon d={IC.students} size={13} className="text-slate-400 shrink-0" />
@@ -1776,40 +1772,34 @@ export default function TeacherDashboard() {
             {courseErr && <div className="bg-red-50 text-red-700 p-3 rounded-xl text-xs font-semibold mb-4 border border-red-100">{courseErr}</div>}
             <form onSubmit={handleCreateCourse} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Kurs nomi *</label>
-                <input required type="text" placeholder="Masalan: Umumiy ovqatlanish minimumi" value={courseTitle} onChange={e => setCourseTitle(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                  {lang === 'ru' ? 'Выберите год *' : 'Yilni tanlang *'}
+                </label>
+                <select 
+                  required 
+                  value={courseYear} 
+                  onChange={e => setCourseYear(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none bg-slate-50 text-slate-700 font-bold cursor-pointer"
+                >
+                  {Array.from({ length: 12 }, (_, i) => 2024 + i).map(y => (
+                    <option key={y} value={y.toString()}>{y}</option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tavsif</label>
-                <textarea placeholder="Kurs haqida qo'shimcha ma'lumot" value={courseDesc} onChange={e => setCourseDesc(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none h-20 resize-none" />
+              
+              <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl space-y-1 text-xs text-slate-600">
+                <p><b>{lang === 'ru' ? 'Название:' : 'Nomi:'}</b> STERILIZATSIYA VA AVTOKLAVDA ISHLASH TARTIBI</p>
+                <p><b>{lang === 'ru' ? 'Часы:' : 'Dars soati:'}</b> 36 {lang === 'ru' ? 'часов' : 'soat'}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Boshlanish *</label>
-                  <input required type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tugash *</label>
-                  <input required type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Jami darslar soni *</label>
-                <input required type="number" min="1" value={totalLessons} onChange={e => setTotalLessons(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-300 focus:border-violet-400 outline-none" />
-              </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowAddCourse(false)}
                   className="text-sm text-slate-500 hover:text-slate-700 font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-100 transition">
-                  Bekor qilish
+                  {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
                 </button>
                 <button type="submit" disabled={courseLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition">
-                  {courseLoading ? "Yaratilmoqda..." : "Kurs yaratish"}
+                  className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-sm disabled:opacity-50 transition">
+                  {courseLoading ? (lang === 'ru' ? "Создание..." : "Yaratilmoqda...") : (lang === 'ru' ? "Создать курс" : "Kurs yaratish")}
                 </button>
               </div>
             </form>
