@@ -1372,7 +1372,7 @@ export default function AdminDashboard() {
 
                               <button 
                                 onClick={() => handleDeleteCertificate(cert.certificate_id)}
-                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-650 hover:text-red-700 border border-red-200 rounded-lg transition"
+                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-lg transition"
                                 title={lang === 'ru' ? 'Удалить сертификат' : "Sertifikatni o'chirish"}
                               >
                                 <Icon d={ICONS.trash} size={13} />
@@ -1646,7 +1646,7 @@ export default function AdminDashboard() {
               </button>
               <button 
                 onClick={submitDeleteCertificate}
-                className="bg-red-650 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
               >
                 {lang === 'ru' ? 'Удалить' : "O'chirish"}
               </button>
