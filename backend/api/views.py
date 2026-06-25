@@ -990,8 +990,9 @@ def admin_delete_certificate(request, certificate_id):
 def admin_export_certificates_excel(request):
     """
     Export certificates to an Excel sheet.
-    Supports optional date filtering via query params: start_date and end_date.
+    Supports optional date filtering, course, teacher, and search query.
     """
+    from django.db.models import Q
     is_admin = is_admin_user(request.user)
     is_teacher = is_teacher_user(request.user)
 
@@ -1000,11 +1001,19 @@ def admin_export_certificates_excel(request):
         
     start_date = request.GET.get('start_date', '').strip()
     end_date = request.GET.get('end_date', '').strip()
+    course_id = request.GET.get('course_id', '').strip()
+    teacher_id = request.GET.get('teacher_id', '').strip()
+    search = request.GET.get('search', '').strip()
     
     if is_admin:
         certs = Certificate.objects.select_related('student', 'course', 'course__teacher').order_by('-issued_at')
+        if teacher_id:
+            certs = certs.filter(course__teacher_id=teacher_id)
     else:
         certs = Certificate.objects.filter(course__teacher=request.user).select_related('student', 'course', 'course__teacher').order_by('-issued_at')
+    
+    if course_id:
+        certs = certs.filter(course_id=course_id)
     
     if start_date:
         try:
@@ -1019,6 +1028,15 @@ def admin_export_certificates_excel(request):
             certs = certs.filter(issued_at__date__lte=end_dt.date())
         except ValueError:
             pass
+
+    if search:
+        q_search = Q(certificate_id__icontains=search) | \
+                   Q(student__first_name__icontains=search) | \
+                   Q(student__last_name__icontains=search) | \
+                   Q(course__title__icontains=search)
+        certs = certs.filter(q_search)
+        
+    certs = certs.distinct().order_by('-issued_at')
 
     wb = openpyxl.Workbook()
     ws = wb.active

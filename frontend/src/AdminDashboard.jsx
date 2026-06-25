@@ -320,9 +320,6 @@ export default function AdminDashboard() {
   const [previewCert, setPreviewCert] = useState(null)
   const [certStartDate, setCertStartDate] = useState('')
   const [certEndDate, setCertEndDate] = useState('')
-  const [showExportModal, setShowExportModal] = useState(false)
-  const [exportStartDate, setExportStartDate] = useState('')
-  const [exportEndDate, setExportEndDate] = useState('')
   const [deletingCertId, setDeletingCertId] = useState(null)
   const [editingCert, setEditingCert] = useState(null)
   const [newCertId, setNewCertId] = useState('')
@@ -617,10 +614,9 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleExportExcel = async (e) => {
-    e.preventDefault();
+  const handleExportExcel = async () => {
     try {
-      const q = `?start_date=${exportStartDate}&end_date=${exportEndDate}`;
+      const q = `?start_date=${certStartDate}&end_date=${certEndDate}&course_id=${selectedCourseId}&teacher_id=${selectedTeacherId}&search=${encodeURIComponent(certSearch)}`;
       const r = await fetch(`${API}/admin/certificates/export-excel/${q}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -629,13 +625,10 @@ export default function AdminDashboard() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `sertifikatlar_${exportStartDate || 'barchasi'}_${exportEndDate || 'barchasi'}.xlsx`;
+        a.download = `sertifikatlar_${certStartDate || 'barchasi'}_${certEndDate || 'barchasi'}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setShowExportModal(false);
-        setExportStartDate('');
-        setExportEndDate('');
       } else {
         const d = await r.json();
         setToast(`⚠ ${d.detail || 'Eksport qilishda xatolik yuz berdi.'}`);
@@ -1325,7 +1318,7 @@ export default function AdminDashboard() {
 
                   {/* Excel Export Button */}
                   <button
-                    onClick={() => setShowExportModal(true)}
+                    onClick={handleExportExcel}
                     className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs"
                     title={t.exportExcel}
                   >
@@ -1640,67 +1633,7 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* ── Excel Export Modal ── */}
-      {showExportModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
-            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <div className="flex items-center gap-2">
-                <Icon d={ICONS.cert} size={18} className="text-emerald-600" />
-                <h3 className="font-bold text-slate-800 text-sm">Excelga eksport qilish</h3>
-              </div>
-              <button 
-                onClick={() => setShowExportModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
-              >
-                <Icon d={ICONS.close} size={18} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleExportExcel}>
-              <div className="p-5 space-y-4">
-                <p className="text-xs text-slate-500">
-                  Sertifikatlarni Excel formatida yuklab olish uchun sana oralig'ini tanlang. Sanalarni bo'sh qoldirsangiz, barcha sertifikatlar eksport qilinadi.
-                </p>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Boshlanish sanasi</label>
-                  <input 
-                    type="date" 
-                    value={exportStartDate} 
-                    onChange={e => setExportStartDate(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-slate-700" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Tugash sanasi</label>
-                  <input 
-                    type="date" 
-                    value={exportEndDate} 
-                    onChange={e => setExportEndDate(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-slate-700" 
-                  />
-                </div>
-              </div>
-              
-              <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
-                <button 
-                  type="button"
-                  onClick={() => setShowExportModal(false)}
-                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
-                >
-                  Bekor qilish
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
-                >
-                  Eksport qilish
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {/* ── Certificate Delete Confirmation Modal ── */}
       {deletingCertId && (
