@@ -22,7 +22,8 @@ from .views import (
     download_excel_template,
     admin_delete_user,
     teacher_delete_student,
-    admin_delete_certificate
+    admin_delete_certificate,
+    admin_export_certificates_excel
 )
 
 urlpatterns = [
@@ -38,6 +39,7 @@ urlpatterns = [
     path('admin/reset-password/', admin_reset_password, name='admin_reset_password'),
     path('admin/teacher-stats/', admin_teacher_stats, name='admin_teacher_stats'),
     path('admin/certificates/', admin_all_certificates, name='admin_all_certificates'),
+    path('admin/certificates/export-excel/', admin_export_certificates_excel, name='admin_export_certificates_excel'),
     path('admin/certificates/<str:certificate_id>/delete/', admin_delete_certificate, name='admin_delete_certificate'),
     
     # Teacher operations

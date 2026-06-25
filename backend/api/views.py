@@ -979,3 +979,143 @@ def admin_delete_certificate(request, certificate_id):
     return Response({"detail": f"Sertifikat {cert_id} muvaffaqiyatli o'chirildi."})
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_export_certificates_excel(request):
+    """
+    Export certificates to an Excel sheet.
+    Supports optional date filtering via query params: start_date and end_date.
+    """
+    if not is_admin_user(request.user):
+        return Response({"detail": "Faqat administratorlar sertifikatlarni eksport qila oladilar."}, status=status.HTTP_403_FORBIDDEN)
+        
+    start_date = request.GET.get('start_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
+    
+    certs = Certificate.objects.select_related('student', 'course', 'course__teacher').order_by('-issued_at')
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            certs = certs.filter(issued_at__date__gte=start_dt.date())
+        except ValueError:
+            pass
+            
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            certs = certs.filter(issued_at__date__lte=end_dt.date())
+        except ValueError:
+            pass
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sertifikatlar"
+    
+    # Grid lines visible
+    ws.views.sheetView[0].showGridLines = True
+    
+    # Columns
+    headers = [
+        "T/r", 
+        "Sertifikat ID", 
+        "F.I.Sh.", 
+        "Pasport",
+        "Kurs nomi", 
+        "O'qituvchi", 
+        "Berilgan sana",
+        "Amal qilish muddati",
+        "Holati"
+    ]
+    
+    # Add title row
+    ws.append(["Tizimdagi sertifikatlar ro'yxati"])
+    ws.merge_cells("A1:I1")
+    ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
+    # emerald green style: 059669
+    ws["A1"].fill = PatternFill(start_color="059669", end_color="059669", fill_type="solid")
+    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 35
+    
+    # Add date range if filtered
+    date_info = "Barchasi"
+    if start_date or end_date:
+        date_info = f"Sana: {start_date or '...'} - {end_date or '...'}"
+    ws.append([date_info])
+    ws.merge_cells("A2:I2")
+    ws["A2"].font = Font(name="Calibri", size=10, italic=True, color="000000")
+    ws["A2"].fill = PatternFill(start_color="E6F4EA", end_color="E6F4EA", fill_type="solid")
+    ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 20
+    
+    # Add headers row
+    ws.append(headers)
+    ws.row_dimensions[3].height = 25
+    header_fill = PatternFill(start_color="D1E7DD", end_color="D1E7DD", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="0f5132")
+    
+    for col_num in range(1, 10):
+        cell = ws.cell(row=3, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        
+    # Write data rows
+    for index, cert in enumerate(certs, start=1):
+        student = cert.student
+        parts = [student.first_name, student.last_name, student.father_name]
+        student_full = " ".join([p.strip() for p in parts if p and p.strip()]) or student.username
+        
+        passport = f"{student.passport_series}{student.passport_number}"
+        if not passport:
+            passport = "—"
+            
+        issued_str = cert.issued_at.strftime('%d.%m.%Y') if cert.issued_at else "—"
+        expires_str = cert.expires_at.strftime('%d.%m.%Y') if cert.expires_at else "—"
+        status_str = "Faol" if cert.is_active else "Yakunlangan"
+        
+        row_data = [
+            index,
+            cert.certificate_id,
+            student_full,
+            passport,
+            cert.course.title,
+            cert.course.teacher.get_full_name() or cert.course.teacher.username,
+            issued_str,
+            expires_str,
+            status_str
+        ]
+        ws.append(row_data)
+        
+        curr_row = index + 3
+        ws.row_dimensions[curr_row].height = 20
+        # Alignment for cells in this row
+        for col_num in range(1, 10):
+            cell = ws.cell(row=curr_row, column=col_num)
+            cell.font = Font(name="Calibri", size=10)
+            if col_num in [1, 2, 4, 7, 8, 9]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+                
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            # We don't want title row (rows 1 and 2) to skew column widths because they are merged
+            if cell.row in [1, 2]:
+                continue
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 10)
+        
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"sertifikatlar_{start_date or 'barchasi'}_{end_date or 'barchasi'}.xlsx"
+    response["Content-Disposition"] = f"attachment; filename={filename}"
+    wb.save(response)
+    return response
+
+

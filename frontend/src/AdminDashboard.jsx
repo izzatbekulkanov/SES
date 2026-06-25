@@ -202,7 +202,8 @@ const translations = {
     filtersReset: "Filtrlarni tozalash",
     allCertsFound: "ta topildi",
     certTotalFound: "Sertifikatlar",
-    tempPasswordDesc: "Parol avtomatik:"
+    tempPasswordDesc: "Parol avtomatik:",
+    exportExcel: "Excelga eksport"
   },
   ru: {
     dashboardTitle: "Администратор",
@@ -277,7 +278,8 @@ const translations = {
     filtersReset: "Сбросить фильтры",
     allCertsFound: "найдено",
     certTotalFound: "Сертификаты",
-    tempPasswordDesc: "Пароль по умолчанию:"
+    tempPasswordDesc: "Пароль по умолчанию:",
+    exportExcel: "Экспорт в Excel"
   }
 };
 
@@ -317,6 +319,9 @@ export default function AdminDashboard() {
   const [previewCert, setPreviewCert] = useState(null)
   const [certStartDate, setCertStartDate] = useState('')
   const [certEndDate, setCertEndDate] = useState('')
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportStartDate, setExportStartDate] = useState('')
+  const [exportEndDate, setExportEndDate] = useState('')
 
   // ── Create user form ─────────────────────────────────────────────────────────
   const [role, setRole] = useState('TEACHER')
@@ -519,6 +524,36 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleExportExcel = async (e) => {
+    e.preventDefault();
+    try {
+      const q = `?start_date=${exportStartDate}&end_date=${exportEndDate}`;
+      const r = await fetch(`${API}/admin/certificates/export-excel/${q}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (r.ok) {
+        const blob = await r.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sertifikatlar_${exportStartDate || 'barchasi'}_${exportEndDate || 'barchasi'}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setShowExportModal(false);
+        setExportStartDate('');
+        setExportEndDate('');
+      } else {
+        const d = await r.json();
+        setToast(`⚠ ${d.detail || 'Eksport qilishda xatolik yuz berdi.'}`);
+        setTimeout(() => setToast(''), 4500);
+      }
+    } catch {
+      setToast('⚠ Serverga ulanishda xatolik.');
+      setTimeout(() => setToast(''), 4500);
+    }
+  };
+
   // ── Filtered & paginated users ────────────────────────────────────────────────
   const roleMap = { students: 'STUDENT', teachers: 'TEACHER', admins: 'ADMIN' }
   const filteredUsers = useMemo(() => {
@@ -560,8 +595,8 @@ export default function AdminDashboard() {
     return Object.entries(map).map(([id, name]) => ({ id: parseInt(id), name }))
   }, [certs, selectedTeacherId])
 
-  const groupedCerts = useMemo(() => {
-    const filtered = certs.filter(c => {
+  const filteredCerts = useMemo(() => {
+    return certs.filter(c => {
       if (selectedTeacherId && c.teacher_id !== parseInt(selectedTeacherId)) return false
       if (selectedCourseId && c.course_id !== parseInt(selectedCourseId)) return false
       
@@ -600,27 +635,11 @@ export default function AdminDashboard() {
       }
       return true
     })
-
-    const groups = {}
-    filtered.forEach(c => {
-      const uid = c.student_username
-      if (!groups[uid]) {
-        groups[uid] = {
-          student_id: c.student_id,
-          student_name: c.student_name,
-          student_username: c.student_username,
-          student_picture: c.student_picture,
-          certificates: []
-        }
-      }
-      groups[uid].certificates.push(c)
-    })
-    return Object.values(groups)
   }, [certs, selectedTeacherId, selectedCourseId, certSearch, certStartDate, certEndDate])
 
-  const pagedGroupedCerts = useMemo(() => {
-    return groupedCerts.slice((certPage - 1) * PAGE_SIZE, certPage * PAGE_SIZE)
-  }, [groupedCerts, certPage])
+  const pagedCerts = useMemo(() => {
+    return filteredCerts.slice((certPage - 1) * PAGE_SIZE, certPage * PAGE_SIZE)
+  }, [filteredCerts, certPage])
 
   // ── Nav menu config ────────────────────────────────────────────────────────────
   const navItems = [
@@ -1211,6 +1230,16 @@ export default function AdminDashboard() {
                     />
                   </div>
 
+                  {/* Excel Export Button */}
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs"
+                    title={t.exportExcel}
+                  >
+                    <Icon d={ICONS.download} size={14} />
+                    <span>{t.exportExcel}</span>
+                  </button>
+
                   <SearchBar
                     value={certSearch}
                     onChange={v => { setCertSearch(v); setCertPage(1) }}
@@ -1221,143 +1250,130 @@ export default function AdminDashboard() {
 
               {loadingCerts ? (
                 <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">{t.loading}</div>
-              ) : pagedGroupedCerts.length === 0 ? (
+              ) : pagedCerts.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-400">
                   <Icon d={ICONS.cert} size={40} className="opacity-20" />
                   <p className="text-sm font-semibold">{t.noCertsFound}</p>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[800px]">
-                    <thead className="sticky top-0 z-10">
-                      <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                        <th className="py-3 px-4 rounded-tl-xl w-[280px]">{t.student}</th>
-                        <th className="py-3 px-4 rounded-tr-xl">{t.certTotalFound} ({groupedCerts.reduce((acc, g) => acc + g.certificates.length, 0)} {t.allCertsFound})</th>
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead className="sticky top-0 z-10 bg-slate-50">
+                      <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        <th className="py-3 px-4 rounded-tl-xl w-[60px]">#</th>
+                        <th className="py-3 px-4 w-[240px]">{t.student}</th>
+                        <th className="py-3 px-4 w-[140px]">{t.certId}</th>
+                        <th className="py-3 px-4">{t.course}</th>
+                        <th className="py-3 px-4 w-[200px]">{t.roleTeacher}</th>
+                        <th className="py-3 px-4 w-[115px]">{t.issuedDate}</th>
+                        <th className="py-3 px-4 w-[115px]">{lang === 'uz' ? 'Amal qilish' : 'Срок действия'}</th>
+                        <th className="py-3 px-4 w-[115px]">{t.status}</th>
+                        <th className="py-3 px-4 rounded-tr-xl w-[180px] text-right pr-6">{t.actions}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
-                      {pagedGroupedCerts.map(group => (
-                        <tr key={group.student_username} className="hover:bg-slate-50/20 transition-colors align-top">
-                          {/* Student Column */}
-                          <td className="py-4 px-4 border-r border-slate-100">
-                            <div className="flex items-start gap-3">
-                              <Avatar src={group.student_picture} name={group.student_name} role="STUDENT" size="lg" />
-                              <div className="space-y-1">
-                                <p className="font-bold text-slate-900 leading-snug">{group.student_name}</p>
-                                <div className="flex items-center gap-1.5">
-                                  <code className="text-[11px] text-slate-400 font-mono">@{group.student_username}</code>
-                                  {copiedUserId === group.student_username ? (
-                                    <span className="text-[9px] text-emerald-600 font-bold animate-pulse">Nusxalandi!</span>
-                                  ) : (
-                                    <button 
-                                      onClick={(e) => handleCopyUsername(e, group.student_username, group.student_username)}
-                                      className="p-0.5 bg-slate-100 hover:bg-slate-200 active:bg-violet-100 text-slate-500 hover:text-slate-700 rounded transition duration-150"
-                                      title="Username ko'chirish"
-                                    >
-                                      <Icon d={ICONS.copy} size={9} />
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="pt-1">
-                                  <span className="inline-block px-2.5 py-0.5 bg-violet-50 text-violet-700 border border-violet-150 rounded-full text-[10px] font-bold">
-                                    {group.certificates.length} ta sertifikat
-                                  </span>
-                                </div>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {pagedCerts.map((cert, index) => (
+                        <tr key={cert.certificate_id} className="hover:bg-slate-50/30 transition-colors">
+                          {/* Tartib raqami */}
+                          <td className="py-3 px-4 text-slate-500 font-mono font-bold">
+                            {(certPage - 1) * PAGE_SIZE + index + 1}
+                          </td>
+                          
+                          {/* Student Details */}
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar src={cert.student_picture} name={cert.student_name} role="STUDENT" size="sm" />
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 truncate max-w-[180px]">{cert.student_name}</p>
+                                <code className="text-[10px] text-slate-400 font-mono">@{cert.student_username}</code>
                               </div>
                             </div>
                           </td>
 
-                          {/* Certificates Column */}
-                          <td className="py-4 px-4">
-                            <div className="flex flex-col gap-3">
-                              {group.certificates.map(cert => (
-                                <div key={cert.certificate_id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs hover:shadow-md hover:border-violet-200 transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                  
-                                  {/* Info */}
-                                  <div className="space-y-2 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="text-[10px] font-bold font-mono bg-violet-50 text-violet-700 border border-violet-150 px-2.5 py-0.5 rounded-lg">
-                                        ID: {cert.certificate_id}
-                                      </span>
-                                      {cert.is_active ? (
-                                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-250 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                          <Icon d={ICONS.check} size={10} /> Faol
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 border border-slate-250 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                          <Icon d={ICONS.clock} size={10} /> Yakunlangan
-                                        </span>
-                                      )}
-                                    </div>
+                          {/* Certificate ID */}
+                          <td className="py-3 px-4 font-mono font-bold text-slate-650">
+                            {cert.certificate_id}
+                          </td>
 
-                                    <div>
-                                      <p className="font-bold text-slate-800 text-sm leading-snug">{cert.course_name}</p>
-                                      <p className="text-[11.5px] text-slate-500 font-semibold mt-1 flex items-center gap-1">
-                                        <Icon d={ICONS.teacher} size={12} className="text-slate-400" />
-                                        {t.roleTeacher}: <span className="text-slate-700 font-bold">{cert.teacher_name}</span>
-                                      </p>
-                                    </div>
+                          {/* Course Name */}
+                          <td className="py-3 px-4 font-semibold text-slate-800">
+                            {cert.course_name}
+                          </td>
 
-                                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg">
-                                        <Icon d={ICONS.calendar} size={11} className="text-slate-400" />
-                                        <span>Berilgan: <strong className="text-slate-700">{cert.issued_at || '—'}</strong></span>
-                                      </div>
-                                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg">
-                                        <Icon d={ICONS.calendar} size={11} className="text-slate-400" />
-                                        <span>Amal qilish: <strong className="text-slate-700">{cert.expires_at || '—'}</strong></span>
-                                      </div>
-                                    </div>
-                                  </div>
+                          {/* Teacher Name */}
+                          <td className="py-3 px-4 text-slate-600 font-medium">
+                            {cert.teacher_name}
+                          </td>
 
-                                  {/* Actions */}
-                                  <div className="flex flex-wrap md:flex-col lg:flex-row items-stretch md:items-end lg:items-center gap-1.5 shrink-0">
-                                    <button 
-                                      onClick={() => setPreviewCert(cert)}
-                                      className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-violet-50 text-slate-700 hover:text-violet-700 border border-slate-200 hover:border-violet-300 px-3.5 py-2 rounded-xl text-xs font-bold transition"
-                                    >
-                                      <Icon d={ICONS.eye} size={13} />
-                                      Ko'rish
-                                    </button>
+                          {/* Issued Date */}
+                          <td className="py-3 px-4 text-slate-500 font-semibold">
+                            {cert.issued_at || '—'}
+                          </td>
 
-                                    {cert.pdf_file ? (
-                                      <a 
-                                        href={getMediaUrl(cert.pdf_file)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-250 hover:border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold transition"
-                                      >
-                                        <Icon d={ICONS.download} size={13} />
-                                        {t.downloadPdf}
-                                      </a>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-450 font-semibold px-3 py-2 border border-slate-100 rounded-xl bg-slate-50 select-none text-center">
-                                        PDF mavjud emas
-                                      </span>
-                                    )}
+                          {/* Expires Date */}
+                          <td className="py-3 px-4 text-slate-500 font-semibold">
+                            {cert.expires_at || '—'}
+                          </td>
 
-                                    <a 
-                                      href={`/verify/${cert.certificate_id}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 border border-blue-200 hover:border-blue-300 px-3.5 py-2 rounded-xl text-xs font-bold transition"
-                                    >
-                                      <Icon d={ICONS.check} size={13} />
-                                      Tekshirish
-                                    </a>
+                          {/* Status */}
+                          <td className="py-3 px-4">
+                            {cert.is_active ? (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-150 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                {t.active}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                {t.finished}
+                              </span>
+                            )}
+                          </td>
 
-                                    <button 
-                                      onClick={() => handleDeleteCertificate(cert.certificate_id)}
-                                      className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 px-3.5 py-2 rounded-xl text-xs font-bold transition"
-                                      title={lang === 'ru' ? 'Удалить сертификат' : "Sertifikatni o'chirish"}
-                                    >
-                                      <Icon d={ICONS.trash} size={13} />
-                                      O'chirish
-                                    </button>
-                                  </div>
+                          {/* Actions */}
+                          <td className="py-3 px-4 text-right pr-6">
+                            <div className="inline-flex items-center gap-1 justify-end">
+                              <button 
+                                onClick={() => setPreviewCert(cert)}
+                                className="p-1.5 bg-slate-50 hover:bg-violet-50 text-slate-500 hover:text-violet-600 border border-slate-200 hover:border-violet-300 rounded-lg transition"
+                                title="Ko'rish"
+                              >
+                                <Icon d={ICONS.eye} size={13} />
+                              </button>
 
-                                </div>
-                              ))}
+                              {cert.pdf_file ? (
+                                <a 
+                                  href={getMediaUrl(cert.pdf_file)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 border border-emerald-250 rounded-lg transition inline-flex items-center justify-center"
+                                  title={t.downloadPdf}
+                                >
+                                  <Icon d={ICONS.download} size={13} />
+                                </a>
+                              ) : (
+                                <span className="p-1.5 bg-slate-50 text-slate-350 border border-slate-100 rounded-lg cursor-not-allowed inline-flex items-center justify-center" title="PDF mavjud emas">
+                                  <Icon d={ICONS.download} size={13} className="opacity-40" />
+                                </span>
+                              )}
+
+                              <a 
+                                href={`/verify/${cert.certificate_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg transition inline-flex items-center justify-center"
+                                title="Tekshirish"
+                              >
+                                <Icon d={ICONS.check} size={13} />
+                              </a>
+
+                              <button 
+                                onClick={() => handleDeleteCertificate(cert.certificate_id)}
+                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-650 hover:text-red-700 border border-red-200 rounded-lg transition"
+                                title={lang === 'ru' ? 'Удалить сертификат' : "Sertifikatni o'chirish"}
+                              >
+                                <Icon d={ICONS.trash} size={13} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1367,7 +1383,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <Pagination page={certPage} total={groupedCerts.length} pageSize={PAGE_SIZE} onPage={setCertPage} t={t} />
+              <Pagination page={certPage} total={filteredCerts.length} pageSize={PAGE_SIZE} onPage={setCertPage} t={t} />
             </div>
 
           )}
@@ -1522,6 +1538,68 @@ export default function AdminDashboard() {
           )
         })}
       </div>
+
+      {/* ── Excel Export Modal ── */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Icon d={ICONS.cert} size={18} className="text-emerald-600" />
+                <h3 className="font-bold text-slate-800 text-sm">Excelga eksport qilish</h3>
+              </div>
+              <button 
+                onClick={() => setShowExportModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+              >
+                <Icon d={ICONS.close} size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleExportExcel}>
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-slate-500">
+                  Sertifikatlarni Excel formatida yuklab olish uchun sana oralig'ini tanlang. Sanalarni bo'sh qoldirsangiz, barcha sertifikatlar eksport qilinadi.
+                </p>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Boshlanish sanasi</label>
+                  <input 
+                    type="date" 
+                    value={exportStartDate} 
+                    onChange={e => setExportStartDate(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-slate-700" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Tugash sanasi</label>
+                  <input 
+                    type="date" 
+                    value={exportEndDate} 
+                    onChange={e => setExportEndDate(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-slate-700" 
+                  />
+                </div>
+              </div>
+              
+              <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
+                >
+                  Bekor qilish
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+                >
+                  Eksport qilish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
 
