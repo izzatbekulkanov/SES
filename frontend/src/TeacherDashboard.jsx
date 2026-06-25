@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
 const API = '/api'
+const PAGE_SIZE = 50
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 18, className = '' }) => (
@@ -226,6 +227,16 @@ export default function TeacherDashboard() {
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [certStartDate, setCertStartDate] = useState('')
   const [certEndDate, setCertEndDate] = useState('')
+  const [certPage, setCertPage] = useState(1)
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportStartDate, setExportStartDate] = useState('')
+  const [exportEndDate, setExportEndDate] = useState('')
+  const [deletingCertId, setDeletingCertId] = useState(null)
+  const [editingCert, setEditingCert] = useState(null)
+  const [newCertId, setNewCertId] = useState('')
+  const [checkingId, setCheckingId] = useState(false)
+  const [idAvailable, setIdAvailable] = useState(null)
+  const [editCertError, setEditCertError] = useState('')
 
   // ── Selection ─────────────────────────────────────────────────────────────
   const [selectedCourse, setSelectedCourse] = useState(null)
@@ -540,6 +551,149 @@ export default function TeacherDashboard() {
       setTimeout(() => setToast(''), 4500)
     }
   }
+
+  const handleDeleteCertificate = (certificateId) => {
+    setDeletingCertId(certificateId)
+  }
+
+  const submitDeleteCertificate = async () => {
+    if (!deletingCertId) return
+
+    try {
+      const r = await fetch(`${API}/admin/certificates/${deletingCertId}/delete/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'Сертификат успешно удален.' : "Sertifikat muvaffaqiyatli o'chirildi.")
+        setTimeout(() => setToast(''), 4500)
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setToast(`⚠ ${d.detail || (lang === 'ru' ? 'Ошибка при удалении.' : 'O\'chirishda xatolik.')}`)
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
+      setTimeout(() => setToast(''), 4500)
+    } finally {
+      setDeletingCertId(null)
+    }
+  }
+
+  useEffect(() => {
+    if (!editingCert) return
+    if (newCertId === editingCert.certificate_id) {
+      setIdAvailable(true)
+      setEditCertError('')
+      return
+    }
+    if (newCertId.trim() === 'ses-') {
+      setIdAvailable(null)
+      setEditCertError(lang === 'ru' ? 'Введите ID после ses-' : 'ses- dan keyin ID kiriting')
+      return
+    }
+    
+    // Real-time check
+    const delayDebounceFn = setTimeout(async () => {
+      setCheckingId(true)
+      try {
+        const r = await fetch(`${API}/admin/certificates/check-id/?id=${newCertId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (r.ok) {
+          const d = await r.json()
+          setIdAvailable(!d.exists)
+          if (d.exists) {
+            setEditCertError(lang === 'ru' ? 'Этот ID уже занят!' : 'Ushbu ID allaqachon band!')
+          } else {
+            setEditCertError('')
+          }
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setCheckingId(false)
+      }
+    }, 400) // debounce 400ms
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [newCertId, editingCert, token, lang])
+
+  const handleStartEditCert = (cert) => {
+    setEditingCert(cert)
+    setNewCertId(cert.certificate_id)
+    setIdAvailable(true)
+    setEditCertError('')
+  }
+
+  const handleIdChange = (val) => {
+    let inputVal = val;
+    if (!inputVal.toLowerCase().startsWith('ses-')) {
+      inputVal = 'ses-';
+    }
+    setNewCertId(inputVal);
+  }
+
+  const submitEditCertificate = async (e) => {
+    e.preventDefault()
+    if (!editingCert || editCertError || checkingId || !idAvailable) return
+
+    try {
+      const r = await fetch(`${API}/admin/certificates/${editingCert.certificate_id}/edit/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ new_id: newCertId })
+      })
+
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'ID сертификата успешно изменен.' : "Sertifikat ID muvaffaqiyatli o'zgartirildi.")
+        setTimeout(() => setToast(''), 4500)
+        setEditingCert(null)
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setToast(`⚠ ${d.detail || (lang === 'ru' ? 'Ошибка при изменении.' : 'O\'zgartirishda xatolik.')}`)
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
+      setTimeout(() => setToast(''), 4500)
+    }
+  }
+
+  const handleExportExcel = async (e) => {
+    e.preventDefault();
+    try {
+      const q = `?start_date=${exportStartDate}&end_date=${exportEndDate}`;
+      const r = await fetch(`${API}/admin/certificates/export-excel/${q}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (r.ok) {
+        const blob = await r.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sertifikatlar_${exportStartDate || 'barchasi'}_${exportEndDate || 'barchasi'}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setShowExportModal(false);
+        setExportStartDate('');
+        setExportEndDate('');
+      } else {
+        const d = await r.json();
+        setToast(`⚠ ${d.detail || 'Eksport qilishda xatolik yuz berdi.'}`);
+        setTimeout(() => setToast(''), 4500);
+      }
+    } catch {
+      setToast('⚠ Serverga ulanishda xatolik.');
+      setTimeout(() => setToast(''), 4500);
+    }
+  };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getCourseStudents = (course) => {
