@@ -1099,15 +1099,14 @@ def admin_export_certificates_excel(request):
                 cell.alignment = Alignment(horizontal="left", vertical="center")
                 
     # Auto-adjust column widths
-    for col in ws.columns:
+    from openpyxl.utils import get_column_letter
+    for col_num in range(1, 10):
+        col_letter = get_column_letter(col_num)
         max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            # We don't want title row (rows 1 and 2) to skew column widths because they are merged
-            if cell.row in [1, 2]:
-                continue
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
+        for row_num in range(3, ws.max_row + 1):
+            val = ws.cell(row=row_num, column=col_num).value
+            if val:
+                max_len = max(max_len, len(str(val)))
         ws.column_dimensions[col_letter].width = max(max_len + 3, 10)
         
     response = HttpResponse(

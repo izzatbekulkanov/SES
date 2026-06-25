@@ -322,6 +322,7 @@ export default function AdminDashboard() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportStartDate, setExportStartDate] = useState('')
   const [exportEndDate, setExportEndDate] = useState('')
+  const [deletingCertId, setDeletingCertId] = useState(null)
 
   // ── Create user form ─────────────────────────────────────────────────────────
   const [role, setRole] = useState('TEACHER')
@@ -497,15 +498,15 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleDeleteCertificate = async (certificateId) => {
-    const confirmMsg = lang === 'ru'
-      ? `Вы действительно хотите удалить этот сертификат (${certificateId})?`
-      : `Haqiqatan ham ushbu sertifikatni (${certificateId}) o'chirmoqchimisiz?`
-      
-    if (!window.confirm(confirmMsg)) return
+  const handleDeleteCertificate = (certificateId) => {
+    setDeletingCertId(certificateId)
+  }
+
+  const submitDeleteCertificate = async () => {
+    if (!deletingCertId) return
 
     try {
-      const r = await fetch(`${API}/admin/certificates/${certificateId}/delete/`, {
+      const r = await fetch(`${API}/admin/certificates/${deletingCertId}/delete/`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -521,6 +522,8 @@ export default function AdminDashboard() {
     } catch {
       setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
       setTimeout(() => setToast(''), 4500)
+    } finally {
+      setDeletingCertId(null)
     }
   }
 
@@ -1597,6 +1600,57 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Certificate Delete Confirmation Modal ── */}
+      {deletingCertId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Icon d={ICONS.trash} size={18} className="text-red-500" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {lang === 'ru' ? 'Удаление сертификата' : "Sertifikatni o'chirish"}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setDeletingCertId(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+              >
+                <Icon d={ICONS.close} size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-650">
+                {lang === 'ru' 
+                  ? `Вы действительно хотите удалить этот сертификат (${deletingCertId})?`
+                  : `Haqiqatan ham ushbu sertifikatni (${deletingCertId}) o'chirmoqchimisiz?`}
+              </p>
+              <p className="text-xs text-red-500 font-semibold bg-red-50 border border-red-100 p-2.5 rounded-xl">
+                {lang === 'ru'
+                  ? '⚠ Внимание: это действие необратимо и файл сертификата будет безвозвратно удален с сервера.'
+                  : "⚠ Diqqat: ushbu amalni ortga qaytarib bo'lmaydi va sertifikat fayli serverdan butunlay o'chiriladi."}
+              </p>
+            </div>
+            
+            <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+              <button 
+                type="button"
+                onClick={() => setDeletingCertId(null)}
+                className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
+              >
+                {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+              </button>
+              <button 
+                onClick={submitDeleteCertificate}
+                className="bg-red-650 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+              >
+                {lang === 'ru' ? 'Удалить' : "O'chirish"}
+              </button>
+            </div>
           </div>
         </div>
       )}
