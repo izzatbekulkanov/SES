@@ -271,11 +271,8 @@ export default function TeacherDashboard() {
   const [esLast, setEsLast] = useState('')
   const [esFather, setEsFather] = useState('')
   const [esPhone, setEsPhone] = useState('')
-  const [esEmail, setEsEmail] = useState('')
   const [esPS, setEsPS] = useState('')
   const [esPN, setEsPN] = useState('')
-  const [esJSHSHIR, setEsJSHSHIR] = useState('')
-  const [esOrg, setEsOrg] = useState('')
   const [esPic, setEsPic] = useState(null)
   const [esErr, setEsErr] = useState('')
   const [esLoading, setEsLoading] = useState(false)
@@ -566,11 +563,8 @@ export default function TeacherDashboard() {
     setEsLast(student.last_name || '')
     setEsFather(student.father_name || '')
     setEsPhone(student.phone_number || '')
-    setEsEmail(student.email || '')
     setEsPS(student.passport_series || '')
     setEsPN(student.passport_number || '')
-    setEsJSHSHIR(student.jshshir || '')
-    setEsOrg(student.organization || '')
     setEsPic(null)
     setEsErr('')
     setEsLoading(false)
@@ -613,11 +607,8 @@ export default function TeacherDashboard() {
       fd.append('last_name', esLast)
       fd.append('father_name', esFather)
       fd.append('phone_number', esPhone)
-      fd.append('email', esEmail)
       fd.append('passport_series', esPS.toUpperCase())
       fd.append('passport_number', esPN)
-      fd.append('jshshir', esJSHSHIR)
-      fd.append('organization', esOrg)
       if (esPic) {
         fd.append('profile_picture', esPic)
       }
@@ -2536,59 +2527,16 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
 
-                {/* JSHSHIR */}
+                {/* Phone */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
-                    {lang === 'ru' ? 'ПИНФЛ (JSHSHIR)' : 'JSHSHIR'}
+                    {lang === 'ru' ? 'Телефон' : 'Telefon'}
                   </label>
                   <input 
                     type="text" 
-                    placeholder="12345678901234" 
-                    maxLength={14} 
-                    value={esJSHSHIR} 
-                    onChange={e => setEsJSHSHIR(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
-                  />
-                </div>
-
-                {/* Phone & Email */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
-                      {lang === 'ru' ? 'Телефон' : 'Telefon'}
-                    </label>
-                    <input 
-                      type="text" 
-                      placeholder="+998 xx xxx xx xx" 
-                      value={esPhone} 
-                      onChange={handleEditPhoneChange}
-                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
-                      Email
-                    </label>
-                    <input 
-                      type="email" 
-                      placeholder="student@example.com" 
-                      value={esEmail} 
-                      onChange={e => setEsEmail(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
-                    />
-                  </div>
-                </div>
-
-                {/* Organization */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
-                    {lang === 'ru' ? 'Организация' : 'Tashkilot'}
-                  </label>
-                  <input 
-                    type="text" 
-                    placeholder="Tashkilot / Ish joyi" 
-                    value={esOrg} 
-                    onChange={e => setEsOrg(e.target.value)}
+                    placeholder="+998 xx xxx xx xx" 
+                    value={esPhone} 
+                    onChange={handleEditPhoneChange}
                     className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
                   />
                 </div>
