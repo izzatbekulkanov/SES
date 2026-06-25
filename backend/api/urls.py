@@ -23,7 +23,9 @@ from .views import (
     admin_delete_user,
     teacher_delete_student,
     admin_delete_certificate,
-    admin_export_certificates_excel
+    admin_export_certificates_excel,
+    admin_check_certificate_id,
+    admin_edit_certificate_id
 )
 
 urlpatterns = [
@@ -40,7 +42,9 @@ urlpatterns = [
     path('admin/teacher-stats/', admin_teacher_stats, name='admin_teacher_stats'),
     path('admin/certificates/', admin_all_certificates, name='admin_all_certificates'),
     path('admin/certificates/export-excel/', admin_export_certificates_excel, name='admin_export_certificates_excel'),
+    path('admin/certificates/check-id/', admin_check_certificate_id, name='admin_check_certificate_id'),
     path('admin/certificates/<str:certificate_id>/delete/', admin_delete_certificate, name='admin_delete_certificate'),
+    path('admin/certificates/<str:certificate_id>/edit/', admin_edit_certificate_id, name='admin_edit_certificate_id'),
     
     # Teacher operations
     path('teacher/courses/', teacher_courses, name='teacher_courses'),

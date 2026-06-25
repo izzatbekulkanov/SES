@@ -38,6 +38,7 @@ const ICONS = {
   check:     'M20 6L9 17l-5-5',
   close:     'M18 6L6 18M6 6l12 12',
   clock:     'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  edit:      'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z',
 }
 
 // ─── Helper to resolve media URLs ──────────────────────────────────────────────
@@ -323,6 +324,11 @@ export default function AdminDashboard() {
   const [exportStartDate, setExportStartDate] = useState('')
   const [exportEndDate, setExportEndDate] = useState('')
   const [deletingCertId, setDeletingCertId] = useState(null)
+  const [editingCert, setEditingCert] = useState(null)
+  const [newCertId, setNewCertId] = useState('')
+  const [checkingId, setCheckingId] = useState(false)
+  const [idAvailable, setIdAvailable] = useState(null)
+  const [editCertError, setEditCertError] = useState('')
 
   // ── Create user form ─────────────────────────────────────────────────────────
   const [role, setRole] = useState('TEACHER')
@@ -524,6 +530,90 @@ export default function AdminDashboard() {
       setTimeout(() => setToast(''), 4500)
     } finally {
       setDeletingCertId(null)
+    }
+  }
+
+  useEffect(() => {
+    if (!editingCert) return
+    if (newCertId === editingCert.certificate_id) {
+      setIdAvailable(true)
+      setEditCertError('')
+      return
+    }
+    if (newCertId.trim() === 'ses-') {
+      setIdAvailable(null)
+      setEditCertError(lang === 'ru' ? 'Введите ID после ses-' : 'ses- dan keyin ID kiriting')
+      return
+    }
+    
+    // Real-time check
+    const delayDebounceFn = setTimeout(async () => {
+      setCheckingId(true)
+      try {
+        const r = await fetch(`${API}/admin/certificates/check-id/?id=${newCertId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (r.ok) {
+          const d = await r.json()
+          setIdAvailable(!d.exists)
+          if (d.exists) {
+            setEditCertError(lang === 'ru' ? 'Этот ID уже занят!' : 'Ushbu ID allaqachon band!')
+          } else {
+            setEditCertError('')
+          }
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setCheckingId(false)
+      }
+    }, 400) // debounce 400ms
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [newCertId, editingCert, token, lang])
+
+  const handleStartEditCert = (cert) => {
+    setEditingCert(cert)
+    setNewCertId(cert.certificate_id)
+    setIdAvailable(true)
+    setEditCertError('')
+  }
+
+  const handleIdChange = (val) => {
+    let inputVal = val;
+    if (!inputVal.toLowerCase().startsWith('ses-')) {
+      inputVal = 'ses-';
+    }
+    setNewCertId(inputVal);
+  }
+
+  const submitEditCertificate = async (e) => {
+    e.preventDefault()
+    if (!editingCert || editCertError || checkingId || !idAvailable) return
+
+    try {
+      const r = await fetch(`${API}/admin/certificates/${editingCert.certificate_id}/edit/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ new_id: newCertId })
+      })
+
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'ID сертификата успешно изменен.' : "Sertifikat ID muvaffaqiyatli o'zgartirildi.")
+        setTimeout(() => setToast(''), 4500)
+        setEditingCert(null)
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setToast(`⚠ ${d.detail || (lang === 'ru' ? 'Ошибка при изменении.' : 'O\'zgartirishda xatolik.')}`)
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
+      setTimeout(() => setToast(''), 4500)
     }
   }
 
@@ -1371,6 +1461,14 @@ export default function AdminDashboard() {
                               </a>
 
                               <button 
+                                onClick={() => handleStartEditCert(cert)}
+                                className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-lg transition inline-flex items-center justify-center"
+                                title={lang === 'ru' ? 'Редактировать ID' : "ID ni tahrirlash"}
+                              >
+                                <Icon d={ICONS.edit} size={13} />
+                              </button>
+
+                              <button 
                                 onClick={() => handleDeleteCertificate(cert.certificate_id)}
                                 className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-lg transition"
                                 title={lang === 'ru' ? 'Удалить сертификат' : "Sertifikatni o'chirish"}
@@ -1651,6 +1749,97 @@ export default function AdminDashboard() {
                 {lang === 'ru' ? 'Удалить' : "O'chirish"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Certificate ID Edit Modal ── */}
+      {editingCert && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Icon d={ICONS.edit} size={18} className="text-indigo-600" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {lang === 'ru' ? 'Редактировать ID сертификата' : "Sertifikat ID sini tahrirlash"}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setEditingCert(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+              >
+                <Icon d={ICONS.close} size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={submitEditCertificate}>
+              <div className="p-5 space-y-4">
+                <div className="space-y-1 bg-slate-50 border border-slate-150 p-3 rounded-xl">
+                  <p className="text-xs text-slate-600">
+                    <b>{lang === 'ru' ? 'Студент' : "O'quvchi"}:</b> {editingCert.student_name}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    <b>{lang === 'ru' ? 'Курс' : "Kurs"}:</b> {editingCert.course_name}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    <b>{lang === 'ru' ? 'Текущий ID' : "Hozirgi ID"}:</b> <span className="font-mono text-slate-700 font-bold">{editingCert.certificate_id}</span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Новый ID (префикс "ses-" обязателен)' : 'Yangi ID ("ses-" prefiksi majburiy)'}
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={newCertId} 
+                      onChange={e => handleIdChange(e.target.value)}
+                      placeholder="ses-12345"
+                      className={`w-full px-3 py-2.5 border rounded-xl text-sm outline-none font-mono font-bold transition ${
+                        editCertError 
+                          ? 'border-red-300 focus:ring-2 focus:ring-red-200 focus:border-red-400 text-red-700' 
+                          : idAvailable === true && newCertId !== editingCert.certificate_id
+                          ? 'border-emerald-300 focus:ring-2 focus:ring-emerald-250 focus:border-emerald-400 text-emerald-700'
+                          : 'border-slate-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 text-slate-700'
+                      }`} 
+                    />
+                    {checkingId && (
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                        <span className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {editCertError ? (
+                    <p className="text-[11px] text-red-500 font-semibold mt-1.5 flex items-center gap-1.5 bg-red-50/50 p-2 rounded-lg border border-red-100">
+                      <span>⚠</span> {editCertError}
+                    </p>
+                  ) : idAvailable === true && newCertId !== editingCert.certificate_id ? (
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1.5 flex items-center gap-1.5 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100">
+                      <span>✓</span> {lang === 'ru' ? 'ID свободен и готов к сохранению' : "ID bo'sh va saqlashga tayyor"}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              
+              <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setEditingCert(null)}
+                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
+                >
+                  {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+                </button>
+                <button 
+                  type="submit"
+                  disabled={!!editCertError || checkingId || !idAvailable || newCertId === editingCert.certificate_id}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+                >
+                  {lang === 'ru' ? 'Сохранить' : "Saqlash"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

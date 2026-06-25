@@ -1118,3 +1118,102 @@ def admin_export_certificates_excel(request):
     return response
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_check_certificate_id(request):
+    """
+    GET: Check if a certificate ID already exists.
+    Query param: id=ses-...
+    """
+    if not is_admin_user(request.user):
+        return Response({"detail": "Ruxsat berilmagan."}, status=status.HTTP_403_FORBIDDEN)
+        
+    cert_id = request.GET.get('id', '').strip()
+    if not cert_id:
+        return Response({"exists": False})
+        
+    exists = Certificate.objects.filter(certificate_id=cert_id).exists()
+    return Response({"exists": exists})
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_edit_certificate_id(request, certificate_id):
+    """
+    POST: Edit a certificate ID (Admin only).
+    Body: {"new_id": "ses-..."}
+    """
+    import os
+    from django.conf import settings
+    from .utils import generate_pdf_and_qr
+
+    if not is_admin_user(request.user):
+        return Response({"detail": "Faqat administratorlar sertifikat ID sini tahrirlashi mumkin."}, status=status.HTTP_403_FORBIDDEN)
+
+    new_id = request.data.get('new_id', '').strip()
+    if not new_id:
+        return Response({"detail": "Yangi ID kiritilishi shart."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Prefix check
+    if not new_id.lower().startswith('ses-'):
+        return Response({"detail": "Sertifikat ID prefiksi 'ses-' bo'lishi shart."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Identical check
+    if new_id == certificate_id:
+        return Response({"detail": "Sertifikat ID o'zgartirilmadi."})
+
+    # Duplication check
+    if Certificate.objects.filter(certificate_id=new_id).exists():
+        return Response({"detail": "Ushbu ID dagi sertifikat allaqachon mavjud."}, status=status.HTTP_400_BAD_REQUEST)
+
+    cert = get_object_or_404(Certificate, certificate_id=certificate_id)
+
+    # 1. Delete old physical files from disk
+    old_pdf_path = cert.pdf_file.path if cert.pdf_file else None
+    old_qr_path = cert.qr_code_image.path if cert.qr_code_image else None
+    old_word_path = os.path.join(settings.MEDIA_ROOT, 'certificates', 'words', f"{certificate_id}.docx")
+
+    # Update ID
+    Certificate.objects.filter(certificate_id=certificate_id).update(certificate_id=new_id)
+
+    # Retrieve again
+    cert = Certificate.objects.get(certificate_id=new_id)
+
+    # Disk deletion
+    if old_pdf_path and os.path.exists(old_pdf_path):
+        try:
+            os.remove(old_pdf_path)
+        except Exception:
+            pass
+    if old_qr_path and os.path.exists(old_qr_path):
+        try:
+            os.remove(old_qr_path)
+        except Exception:
+            pass
+    if os.path.exists(old_word_path):
+        try:
+            os.remove(old_word_path)
+        except Exception:
+            pass
+
+    # Clear fields
+    cert.pdf_file = None
+    cert.qr_code_image = None
+    cert.save()
+
+    # 2. Regenerate with new ID
+    try:
+        generate_pdf_and_qr(cert)
+        cert.save()
+    except Exception as e:
+        return Response({"detail": f"Fayllarni generatsiya qilishda xatolik: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({
+        "detail": "Sertifikat ID muvaffaqiyatli o'zgartirildi va hujjatlar qayta generatsiya qilindi.",
+        "certificate_id": cert.certificate_id,
+        "pdf_file": request.build_absolute_uri(cert.pdf_file.url) if cert.pdf_file else None,
+        "qr_code_image": request.build_absolute_uri(cert.qr_code_image.url) if cert.qr_code_image else None,
+    })
+
+
+
