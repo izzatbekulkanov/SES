@@ -919,6 +919,75 @@ def teacher_delete_student(request, student_id):
     return Response({"detail": f"O'quvchi {username} muvaffaqiyatli o'chirildi."})
 
 
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+@transaction.atomic
+def teacher_edit_student(request, student_id):
+    """
+    POST: Edit a student's profile information. (Teacher only, must be their student)
+    """
+    if not is_teacher_user(request.user):
+        return Response({"detail": "Faqat o'qituvchilar o'quvchilarni tahrirlay oladi."}, status=status.HTTP_403_FORBIDDEN)
+        
+    student_user = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
+    
+    # Check if student is taught by this teacher
+    is_authorized = is_admin_user(request.user)
+    if not is_authorized:
+        is_authorized = StudentProfile.objects.filter(user=student_user, teacher=request.user).exists()
+        
+    if not is_authorized:
+        return Response({"detail": "Ushbu o'quvchini tahrirlashga ruxsatingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
+        
+    first_name = request.data.get('first_name')
+    last_name = request.data.get('last_name')
+    father_name = request.data.get('father_name', '')
+    email = request.data.get('email', '')
+    phone_number = request.data.get('phone_number', '')
+    organization = request.data.get('organization', '')
+    passport_series = request.data.get('passport_series', '')
+    passport_number = request.data.get('passport_number', '')
+    jshshir = request.data.get('jshshir', '')
+    profile_picture = request.FILES.get('profile_picture')
+    
+    if not first_name or not last_name:
+        return Response({"detail": "Ism va Familiya majburiy."}, status=status.HTTP_400_BAD_REQUEST)
+        
+    student_user.first_name = first_name
+    student_user.last_name = last_name
+    student_user.father_name = father_name
+    student_user.email = email
+    student_user.passport_series = passport_series.upper()
+    student_user.passport_number = passport_number
+    student_user.jshshir = jshshir
+    
+    if profile_picture:
+        if student_user.profile_picture:
+            try:
+                student_user.profile_picture.delete(save=False)
+            except:
+                pass
+        student_user.profile_picture = profile_picture
+        
+    student_user.save()
+    
+    profile, _ = StudentProfile.objects.get_or_create(user=student_user, defaults={'teacher': request.user})
+    profile.phone_number = phone_number
+    profile.organization = organization
+    profile.save()
+    
+    # Regenerate certificates pdf
+    certs = Certificate.objects.filter(student=student_user)
+    for cert in certs:
+        try:
+            generate_pdf_and_qr(cert)
+        except Exception:
+            pass
+            
+    serializer = StudentSerializer(profile, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 @api_view(['DELETE'])
 @permission_classes([permissions.IsAuthenticated])
 def admin_delete_certificate(request, certificate_id):

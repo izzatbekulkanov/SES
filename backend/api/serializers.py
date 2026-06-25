@@ -9,13 +9,14 @@ class UserSerializer(serializers.ModelSerializer):
     courses = serializers.SerializerMethodField()
     phone_number = serializers.SerializerMethodField()
     organization = serializers.SerializerMethodField()
+    teacher = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ('id', 'username', 'first_name', 'last_name', 'email', 'role',
                   'passport_series', 'passport_number', 'jshshir',
                   'birth_date', 'father_name', 'profile_picture', 'courses',
-                  'phone_number', 'organization')
+                  'phone_number', 'organization', 'teacher')
 
     def get_profile_picture(self, obj):
         request = self.context.get('request')
@@ -38,6 +39,17 @@ class UserSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'student_profile'):
             return obj.student_profile.organization
         return ""
+
+    def get_teacher(self, obj):
+        if obj.role == 'STUDENT' and hasattr(obj, 'student_profile') and obj.student_profile.teacher:
+            t = obj.student_profile.teacher
+            return {
+                "id": t.id,
+                "first_name": t.first_name,
+                "last_name": t.last_name,
+                "username": t.username
+            }
+        return None
 
 
 class StudentSerializer(serializers.ModelSerializer):

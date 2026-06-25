@@ -327,6 +327,18 @@ export default function AdminDashboard() {
   const [idAvailable, setIdAvailable] = useState(null)
   const [editCertError, setEditCertError] = useState('')
 
+  // ── Edit Student Form (Admin view) ──────────────────────────────────────────
+  const [editingStudent, setEditingStudent] = useState(null)
+  const [esFirst, setEsFirst] = useState('')
+  const [esLast, setEsLast] = useState('')
+  const [esFather, setEsFather] = useState('')
+  const [esPhone, setEsPhone] = useState('')
+  const [esPS, setEsPS] = useState('')
+  const [esPN, setEsPN] = useState('')
+  const [esPic, setEsPic] = useState(null)
+  const [esErr, setEsErr] = useState('')
+  const [esLoading, setEsLoading] = useState(false)
+
   // ── Create user form ─────────────────────────────────────────────────────────
   const [role, setRole] = useState('TEACHER')
   const [firstName, setFirstName] = useState('')
@@ -498,6 +510,87 @@ export default function AdminDashboard() {
     } catch {
       setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
       setTimeout(() => setToast(''), 4500)
+    }
+  }
+
+  const handleStartEditStudent = (student) => {
+    setEditingStudent(student)
+    setEsFirst(student.first_name || '')
+    setEsLast(student.last_name || '')
+    setEsFather(student.father_name || '')
+    setEsPhone(student.phone_number || '')
+    setEsPS(student.passport_series || '')
+    setEsPN(student.passport_number || '')
+    setEsPic(null)
+    setEsErr('')
+    setEsLoading(false)
+  }
+
+  const handleEditPhoneChange = (e) => {
+    const input = e.target.value;
+    if (!input || input === '+' || input === '+9' || input === '+99' || input === '+998') {
+      setEsPhone('');
+      return;
+    }
+    const numbers = input.replace(/\D/g, '');
+    let local = numbers;
+    if (numbers.startsWith('998')) {
+      local = numbers.slice(3);
+    }
+    local = local.slice(0, 9);
+    let formatted = '+998';
+    if (local.length > 0) formatted += ' ' + local.slice(0, 2);
+    if (local.length > 2) formatted += ' ' + local.slice(2, 5);
+    if (local.length > 5) formatted += ' ' + local.slice(5, 7);
+    if (local.length > 7) formatted += ' ' + local.slice(7, 9);
+    setEsPhone(formatted);
+  };
+
+  const submitEditStudent = async (e) => {
+    e.preventDefault()
+    setEsErr('')
+    setEsLoading(true)
+
+    if (!esFirst || !esLast) {
+      setEsErr(lang === 'ru' ? 'Имя и Фамилия обязательны' : "Ism va Familiya majburiy.")
+      setEsLoading(false)
+      return
+    }
+
+    try {
+      const fd = new FormData()
+      fd.append('first_name', esFirst)
+      fd.append('last_name', esLast)
+      fd.append('father_name', esFather)
+      fd.append('phone_number', esPhone)
+      fd.append('passport_series', esPS.toUpperCase())
+      fd.append('passport_number', esPN)
+      if (esPic) {
+        fd.append('profile_picture', esPic)
+      }
+
+      const r = await fetch(`${API}/teacher/students/${editingStudent.id}/edit/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: fd
+      })
+
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'Информация о студенте успешно обновлена.' : "O'quvchi ma'lumotlari muvaffaqiyatli yangilandi.")
+        setTimeout(() => setToast(''), 4500)
+        setEditingStudent(null)
+        await fetchUsers()
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setEsErr(d.detail || (lang === 'ru' ? 'Ошибка при сохранении.' : 'Saqlashda xatolik.'))
+      }
+    } catch {
+      setEsErr(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Serverga ulanishda xatolik.')
+    } finally {
+      setEsLoading(false)
     }
   }
 
@@ -1046,6 +1139,7 @@ export default function AdminDashboard() {
                         <th className="py-3 px-4 rounded-tl-xl">{t.user}</th>
                         <th className="py-3 px-4">{t.passport}</th>
                         {section === 'students' && <th className="py-3 px-4">{t.courses}</th>}
+                        {section === 'students' && <th className="py-3 px-4">{lang === 'ru' ? 'Преподаватель' : "O'qituvchi"}</th>}
                         {section !== 'students' && <th className="py-3 px-4">{t.email}</th>}
                         <th className="py-3 px-4 text-center rounded-tr-xl">{t.harakatlar}</th>
                       </tr>
@@ -1103,6 +1197,22 @@ export default function AdminDashboard() {
                               )}
                             </td>
                           )}
+                          {section === 'students' && (
+                            <td className="py-3 px-4">
+                              {u.teacher ? (
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-slate-800 text-xs">
+                                    {u.teacher.first_name} {u.teacher.last_name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    @{u.teacher.username}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">—</span>
+                              )}
+                            </td>
+                          )}
                           {section !== 'students' && <td className="py-3 px-4 text-slate-600 text-xs">{u.email || '—'}</td>}
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-2">
@@ -1112,12 +1222,20 @@ export default function AdminDashboard() {
                                 {t.resetPass}
                               </button>
                               {u.role === 'STUDENT' && (
-                                <button onClick={() => handleDeleteStudent(u.id, `${u.first_name} ${u.last_name}`)}
-                                  className="inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-200 p-1.5 rounded-lg text-xs font-bold transition"
-                                  title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
-                                >
-                                  <Icon d={ICONS.trash} size={12} />
-                                </button>
+                                <>
+                                  <button onClick={() => handleStartEditStudent(u)}
+                                    className="inline-flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 border border-blue-200 p-1.5 rounded-lg text-xs font-bold transition"
+                                    title={lang === 'ru' ? 'Редактировать' : "Tahrirlash"}
+                                  >
+                                    <Icon d={ICONS.edit} size={12} />
+                                  </button>
+                                  <button onClick={() => handleDeleteStudent(u.id, `${u.first_name} ${u.last_name}`)}
+                                    className="inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-200 p-1.5 rounded-lg text-xs font-bold transition"
+                                    title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
+                                  >
+                                    <Icon d={ICONS.trash} size={12} />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -1766,6 +1884,171 @@ export default function AdminDashboard() {
                   className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
                 >
                   {lang === 'ru' ? 'Сохранить' : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Student Modal ── */}
+      {editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto flex flex-col scale-in">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-3xl shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {lang === 'ru' ? 'Редактировать студента' : "O'quvchi ma'lumotlarini tahrirlash"}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {lang === 'ru' ? 'Изменение данных профиля и документов' : "Profil va hujjat ma'lumotlarini o'zgartirish"}
+                </p>
+              </div>
+              <button 
+                onClick={() => setEditingStudent(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-400 hover:text-slate-600 transition shadow-xs"
+              >
+                <Icon d={ICONS.close} size={14} />
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {esErr && (
+              <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold border border-red-100 flex items-center gap-2">
+                <span>⚠</span>
+                <span>{esErr}</span>
+              </div>
+            )}
+
+            <form onSubmit={submitEditStudent} className="flex-1 flex flex-col min-h-0">
+              <div className="p-6 space-y-4 overflow-y-auto min-h-0">
+                {/* Profile Pic Upload */}
+                <div className="flex items-center gap-4 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <Avatar 
+                    src={esPic ? URL.createObjectURL(esPic) : editingStudent.profile_picture} 
+                    name={`${esFirst} ${esLast}`} 
+                    size="lg" 
+                  />
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Фото профиля' : 'Profil rasmi'}
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => setEsPic(e.target.files[0])}
+                      className="text-xs text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Name / Surname */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Имя *' : 'Ism *'}
+                    </label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="Ali" 
+                      value={esFirst} 
+                      onChange={e => setEsFirst(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Фамилия *' : 'Familiya *'}
+                    </label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="Valiyev" 
+                      value={esLast} 
+                      onChange={e => setEsLast(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                </div>
+
+                {/* Father's Name */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Отчество' : 'Otasining ismi'}
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Qobilovich" 
+                    value={esFather} 
+                    onChange={e => setEsFather(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                  />
+                </div>
+
+                {/* Passport Series and Number */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Серия' : 'Seriya'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="AA" 
+                      maxLength={2} 
+                      value={esPS} 
+                      onChange={e => setEsPS(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono text-center focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Номер паспорта' : 'Pasport raqami'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="1234567" 
+                      maxLength={7} 
+                      value={esPN} 
+                      onChange={e => setEsPN(e.target.value.replace(/\D/g, ''))}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Телефон' : 'Telefon'}
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="+998 xx xxx xx xx" 
+                    value={esPhone} 
+                    onChange={handleEditPhoneChange}
+                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                  />
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5 rounded-b-3xl shrink-0">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingStudent(null)}
+                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-5 py-2.5 rounded-xl border border-slate-200 transition"
+                >
+                  {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={esLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md"
+                >
+                  {esLoading 
+                    ? (lang === 'ru' ? 'Сохранение...' : 'Saqlanmoqda...') 
+                    : (lang === 'ru' ? 'Сохранить' : 'Saqlash')}
                 </button>
               </div>
             </form>

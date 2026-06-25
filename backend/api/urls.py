@@ -22,6 +22,7 @@ from .views import (
     download_excel_template,
     admin_delete_user,
     teacher_delete_student,
+    teacher_edit_student,
     admin_delete_certificate,
     admin_export_certificates_excel,
     admin_check_certificate_id,
@@ -53,6 +54,7 @@ urlpatterns = [
     path('teacher/courses/download-template/', download_excel_template, name='download_excel_template'),
     path('teacher/students/', teacher_students, name='teacher_students'),
     path('teacher/students/<int:student_id>/delete/', teacher_delete_student, name='teacher_delete_student'),
+    path('teacher/students/<int:student_id>/edit/', teacher_edit_student, name='teacher_edit_student'),
     path('teacher/students/<int:student_id>/toggle-lesson/', toggle_lesson, name='toggle_lesson'),
     path('teacher/students/<int:student_id>/generate-certificate/', generate_certificate, name='generate_certificate'),
     
