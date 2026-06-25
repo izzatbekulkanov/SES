@@ -265,6 +265,21 @@ export default function TeacherDashboard() {
   const [sfErr, setSfErr] = useState('')
   const [sfLoading, setSfLoading] = useState(false)
 
+  // ── Edit Student Form ──────────────────────────────────────────────────────
+  const [editingStudent, setEditingStudent] = useState(null)
+  const [esFirst, setEsFirst] = useState('')
+  const [esLast, setEsLast] = useState('')
+  const [esFather, setEsFather] = useState('')
+  const [esPhone, setEsPhone] = useState('')
+  const [esEmail, setEsEmail] = useState('')
+  const [esPS, setEsPS] = useState('')
+  const [esPN, setEsPN] = useState('')
+  const [esJSHSHIR, setEsJSHSHIR] = useState('')
+  const [esOrg, setEsOrg] = useState('')
+  const [esPic, setEsPic] = useState(null)
+  const [esErr, setEsErr] = useState('')
+  const [esLoading, setEsLoading] = useState(false)
+
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -542,6 +557,94 @@ export default function TeacherDashboard() {
     } catch {
       setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
       setTimeout(() => setToast(''), 4500)
+    }
+  }
+
+  const handleStartEditStudent = (student) => {
+    setEditingStudent(student)
+    setEsFirst(student.first_name || '')
+    setEsLast(student.last_name || '')
+    setEsFather(student.father_name || '')
+    setEsPhone(student.phone_number || '')
+    setEsEmail(student.email || '')
+    setEsPS(student.passport_series || '')
+    setEsPN(student.passport_number || '')
+    setEsJSHSHIR(student.jshshir || '')
+    setEsOrg(student.organization || '')
+    setEsPic(null)
+    setEsErr('')
+    setEsLoading(false)
+  }
+
+  const handleEditPhoneChange = (e) => {
+    const input = e.target.value;
+    if (!input || input === '+' || input === '+9' || input === '+99' || input === '+998') {
+      setEsPhone('');
+      return;
+    }
+    const numbers = input.replace(/\D/g, '');
+    let local = numbers;
+    if (numbers.startsWith('998')) {
+      local = numbers.slice(3);
+    }
+    local = local.slice(0, 9);
+    let formatted = '+998';
+    if (local.length > 0) formatted += ' ' + local.slice(0, 2);
+    if (local.length > 2) formatted += ' ' + local.slice(2, 5);
+    if (local.length > 5) formatted += ' ' + local.slice(5, 7);
+    if (local.length > 7) formatted += ' ' + local.slice(7, 9);
+    setEsPhone(formatted);
+  };
+
+  const submitEditStudent = async (e) => {
+    e.preventDefault()
+    setEsErr('')
+    setEsLoading(true)
+
+    if (!esFirst || !esLast) {
+      setEsErr(lang === 'ru' ? 'Имя и Фамилия обязательны' : "Ism va Familiya majburiy.")
+      setEsLoading(false)
+      return
+    }
+
+    try {
+      const fd = new FormData()
+      fd.append('first_name', esFirst)
+      fd.append('last_name', esLast)
+      fd.append('father_name', esFather)
+      fd.append('phone_number', esPhone)
+      fd.append('email', esEmail)
+      fd.append('passport_series', esPS.toUpperCase())
+      fd.append('passport_number', esPN)
+      fd.append('jshshir', esJSHSHIR)
+      fd.append('organization', esOrg)
+      if (esPic) {
+        fd.append('profile_picture', esPic)
+      }
+
+      const r = await fetch(`${API}/teacher/students/${editingStudent.id}/edit/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: fd
+      })
+
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'Информация о студенте успешно обновлена.' : "O'quvchi ma'lumotlari muvaffaqiyatli yangilandi.")
+        setTimeout(() => setToast(''), 4500)
+        setEditingStudent(null)
+        await fetchCourses()
+        await fetchStudents()
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setEsErr(d.detail || (lang === 'ru' ? 'Ошибка при сохранении.' : 'Saqlashda xatolik.'))
+      }
+    } catch {
+      setEsErr(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Serverga ulanishda xatolik.')
+    } finally {
+      setEsLoading(false)
     }
   }
 
@@ -1296,6 +1399,13 @@ export default function TeacherDashboard() {
                                           </button>
                                         )}
                                         <button
+                                          onClick={() => handleStartEditStudent(s)}
+                                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 border border-blue-100 transition shadow-xs shrink-0"
+                                          title={lang === 'ru' ? 'Редактировать' : "Tahrirlash"}
+                                        >
+                                          <Icon d={IC.edit} size={11} />
+                                        </button>
+                                        <button
                                           onClick={() => handleDeleteStudent(s.id, `${s.first_name} ${s.last_name}`)}
                                           className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-100 transition shadow-xs shrink-0"
                                           title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
@@ -1367,6 +1477,13 @@ export default function TeacherDashboard() {
                             {s.has_certificate && (
                               <span className="bg-emerald-100 text-emerald-700 text-[9px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">✓ Cert</span>
                             )}
+                            <button
+                              onClick={() => handleStartEditStudent(s)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 border border-blue-100 transition shadow-xs"
+                              title={lang === 'ru' ? 'Редактировать' : "Tahrirlash"}
+                            >
+                              <Icon d={IC.edit} size={11} />
+                            </button>
                             <button
                               onClick={() => handleDeleteStudent(s.id, `${s.first_name} ${s.last_name}`)}
                               className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-100 transition shadow-xs"
@@ -2286,6 +2403,214 @@ export default function TeacherDashboard() {
                   className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
                 >
                   {lang === 'ru' ? 'Сохранить' : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Student Modal ── */}
+      {editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto flex flex-col scale-in">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-3xl shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {lang === 'ru' ? 'Редактировать студента' : "O'quvchi ma'lumotlarini tahrirlash"}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {lang === 'ru' ? 'Изменение данных профиля и документов' : "Profil va hujjat ma'lumotlarini o'zgartirish"}
+                </p>
+              </div>
+              <button 
+                onClick={() => setEditingStudent(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-400 hover:text-slate-600 transition shadow-xs"
+              >
+                <Icon d={IC.close} size={14} />
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {esErr && (
+              <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold border border-red-100 flex items-center gap-2">
+                <span>⚠</span>
+                <span>{esErr}</span>
+              </div>
+            )}
+
+            <form onSubmit={submitEditStudent} className="flex-1 flex flex-col min-h-0">
+              <div className="p-6 space-y-4 overflow-y-auto min-h-0">
+                {/* Profile Pic Upload */}
+                <div className="flex items-center gap-4 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                  <Avatar 
+                    src={esPic ? URL.createObjectURL(esPic) : editingStudent.profile_picture} 
+                    name={`${esFirst} ${esLast}`} 
+                    size="lg" 
+                  />
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Фото профиля' : 'Profil rasmi'}
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => setEsPic(e.target.files[0])}
+                      className="text-xs text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Name / Surname */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Имя *' : 'Ism *'}
+                    </label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="Ali" 
+                      value={esFirst} 
+                      onChange={e => setEsFirst(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Фамилия *' : 'Familiya *'}
+                    </label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="Valiyev" 
+                      value={esLast} 
+                      onChange={e => setEsLast(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                </div>
+
+                {/* Father's Name */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Отчество' : 'Otasining ismi'}
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Qobilovich" 
+                    value={esFather} 
+                    onChange={e => setEsFather(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                  />
+                </div>
+
+                {/* Passport Series and Number */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Серия' : 'Seriya'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="AA" 
+                      maxLength={2} 
+                      value={esPS} 
+                      onChange={e => setEsPS(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono text-center focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Номер паспорта' : 'Pasport raqami'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="1234567" 
+                      maxLength={7} 
+                      value={esPN} 
+                      onChange={e => setEsPN(e.target.value.replace(/\D/g, ''))}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                </div>
+
+                {/* JSHSHIR */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                    {lang === 'ru' ? 'ПИНФЛ (JSHSHIR)' : 'JSHSHIR'}
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="12345678901234" 
+                    maxLength={14} 
+                    value={esJSHSHIR} 
+                    onChange={e => setEsJSHSHIR(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono tracking-wider focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                  />
+                </div>
+
+                {/* Phone & Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Телефон' : 'Telefon'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="+998 xx xxx xx xx" 
+                      value={esPhone} 
+                      onChange={handleEditPhoneChange}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      Email
+                    </label>
+                    <input 
+                      type="email" 
+                      placeholder="student@example.com" 
+                      value={esEmail} 
+                      onChange={e => setEsEmail(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                </div>
+
+                {/* Organization */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Организация' : 'Tashkilot'}
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Tashkilot / Ish joyi" 
+                    value={esOrg} 
+                    onChange={e => setEsOrg(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                  />
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5 rounded-b-3xl shrink-0">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingStudent(null)}
+                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-5 py-2.5 rounded-xl border border-slate-200 transition"
+                >
+                  {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={esLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md"
+                >
+                  {esLoading 
+                    ? (lang === 'ru' ? 'Сохранение...' : 'Saqlanmoqda...') 
+                    : (lang === 'ru' ? 'Сохранить' : 'Saqlash')}
                 </button>
               </div>
             </form>
