@@ -951,3 +951,31 @@ def teacher_delete_student(request, student_id):
     return Response({"detail": f"O'quvchi {username} muvaffaqiyatli o'chirildi."})
 
 
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_delete_certificate(request, certificate_id):
+    """
+    DELETE: Delete a certificate by its certificate_id. (Admin only)
+    """
+    if not is_admin_user(request.user):
+        return Response({"detail": "Ushbu amalni bajarish uchun ruxsatingiz yo'q (Admin talab etiladi)."}, status=status.HTTP_403_FORBIDDEN)
+        
+    cert = get_object_or_404(Certificate, certificate_id=certificate_id)
+    
+    # Delete physical files from disk
+    if cert.pdf_file:
+        try:
+            cert.pdf_file.delete(save=False)
+        except:
+            pass
+    if cert.qr_code_image:
+        try:
+            cert.qr_code_image.delete(save=False)
+        except:
+            pass
+            
+    cert_id = cert.certificate_id
+    cert.delete()
+    return Response({"detail": f"Sertifikat {cert_id} muvaffaqiyatli o'chirildi."})
+
+

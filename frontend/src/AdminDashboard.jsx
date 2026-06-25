@@ -492,6 +492,33 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleDeleteCertificate = async (certificateId) => {
+    const confirmMsg = lang === 'ru'
+      ? `Вы действительно хотите удалить этот сертификат (${certificateId})?`
+      : `Haqiqatan ham ushbu sertifikatni (${certificateId}) o'chirmoqchimisiz?`
+      
+    if (!window.confirm(confirmMsg)) return
+
+    try {
+      const r = await fetch(`${API}/admin/certificates/${certificateId}/delete/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'Сертификат успешно удален.' : "Sertifikat muvaffaqiyatli o'chirildi.")
+        setTimeout(() => setToast(''), 4500)
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setToast(`⚠ ${d.detail || (lang === 'ru' ? 'Ошибка при удалении.' : 'O\'chirishda xatolik.')}`)
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
+      setTimeout(() => setToast(''), 4500)
+    }
+  }
+
   // ── Filtered & paginated users ────────────────────────────────────────────────
   const roleMap = { students: 'STUDENT', teachers: 'TEACHER', admins: 'ADMIN' }
   const filteredUsers = useMemo(() => {
@@ -1318,6 +1345,15 @@ export default function AdminDashboard() {
                                       <Icon d={ICONS.check} size={13} />
                                       Tekshirish
                                     </a>
+
+                                    <button 
+                                      onClick={() => handleDeleteCertificate(cert.certificate_id)}
+                                      className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 px-3.5 py-2 rounded-xl text-xs font-bold transition"
+                                      title={lang === 'ru' ? 'Удалить сертификат' : "Sertifikatni o'chirish"}
+                                    >
+                                      <Icon d={ICONS.trash} size={13} />
+                                      O'chirish
+                                    </button>
                                   </div>
 
                                 </div>
