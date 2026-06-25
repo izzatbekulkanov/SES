@@ -34,6 +34,7 @@ const IC = {
   download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5 5-5 M12 15V3',
   search:   'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
   bell:     'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0',
+  trash:    'M3 6h18 M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2',
 }
 
 // ── Helper to resolve media URLs ──────────────────────────────────────────────
@@ -175,8 +176,10 @@ export default function TeacherDashboard() {
   // ── Language ─────────────────────────────────────────────────────────────────
   const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'uz')
 
-  // ── Cert search ──────────────────────────────────────────────────────────────
+  // ── Cert search & date filters ──────────────────────────────────────────────
   const [certSearch, setCertSearch] = useState('')
+  const [certStartDate, setCertStartDate] = useState('')
+  const [certEndDate, setCertEndDate] = useState('')
 
   // ── Selection ─────────────────────────────────────────────────────────────
   const [selectedCourse, setSelectedCourse] = useState(null)
@@ -458,8 +461,38 @@ export default function TeacherDashboard() {
     } catch {
       setToast('⚠ Serverga ulanishda xatolik.')
       setTimeout(() => setToast(''), 4500)
+    } finally {
+      setCertLoading(false)
     }
-    finally { setCertLoading(false) }
+  }
+
+  const handleDeleteStudent = async (studentId, studentName) => {
+    const confirmMsg = lang === 'ru' 
+      ? `Вы действительно хотите удалить студента ${studentName}? Все связанные сертификаты также будут удалены!`
+      : `Haqiqatan ham o'quvchi ${studentName}ni o'chirmoqchimisiz? Unga tegishli barcha sertifikatlar ham o'chib ketadi!`
+    
+    if (!window.confirm(confirmMsg)) return
+
+    try {
+      const r = await fetch(`${API}/teacher/students/${studentId}/delete/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'Студент успешно удален.' : "O'quvchi muvaffaqiyatli o'chirildi.")
+        setTimeout(() => setToast(''), 4500)
+        await fetchCourses()
+        await fetchStudents()
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setToast(`⚠ ${d.detail || (lang === 'ru' ? 'Ошибка при удалении.' : 'O\'chirishda xatolik.')}`)
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
+      setTimeout(() => setToast(''), 4500)
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -483,6 +516,28 @@ export default function TeacherDashboard() {
 
   // Filter certs based on search query
   const filteredCerts = certs.filter(cert => {
+    if (certStartDate || certEndDate) {
+      const parseDateDMY = (dmyStr) => {
+        if (!dmyStr) return null;
+        const parts = dmyStr.split('.');
+        if (parts.length !== 3) return null;
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      };
+      const certDate = parseDateDMY(cert.issued_at);
+      if (certDate) {
+        if (certStartDate) {
+          const start = new Date(certStartDate);
+          start.setHours(0, 0, 0, 0);
+          if (certDate < start) return false;
+        }
+        if (certEndDate) {
+          const end = new Date(certEndDate);
+          end.setHours(23, 59, 59, 999);
+          if (certDate > end) return false;
+        }
+      }
+    }
+
     if (!certSearch.trim()) return true
 
     const query = certSearch.toLowerCase().trim()
@@ -1008,30 +1063,39 @@ export default function TeacherDashboard() {
                                     </td>
                                     {/* Amallar */}
                                     <td className="py-3 px-4 text-center">
-                                      {hasCert ? (
+                                      <div className="flex items-center justify-center gap-2">
+                                        {hasCert ? (
+                                          <button
+                                            onClick={() => setPreviewCert({ ...cert, student_name: `${s.first_name} ${s.last_name}${s.father_name ? ' ' + s.father_name : ''}` })}
+                                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition whitespace-nowrap"
+                                          >
+                                            <Icon d={IC.eye} size={12} /> Ko'rish
+                                          </button>
+                                        ) : lessonDone ? (
+                                          <button
+                                            onClick={() => handleGenerateCert(s.id)}
+                                            disabled={certLoading}
+                                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 disabled:cursor-wait px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap"
+                                          >
+                                            <Icon d={IC.award} size={12} />
+                                            {certLoading ? 'Yaratilmoqda...' : 'Sertifikat berish'}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => setLessonDoneMap(m => ({ ...m, [`${selectedCourse.id}_${s.id}`]: true }))}
+                                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap"
+                                          >
+                                            <Icon d={IC.check} size={12} /> Dars yakunlash
+                                          </button>
+                                        )}
                                         <button
-                                          onClick={() => setPreviewCert({ ...cert, student_name: `${s.first_name} ${s.last_name}${s.father_name ? ' ' + s.father_name : ''}` })}
-                                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition whitespace-nowrap"
+                                          onClick={() => handleDeleteStudent(s.id, `${s.first_name} ${s.last_name}`)}
+                                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-100 transition shadow-xs shrink-0"
+                                          title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
                                         >
-                                          <Icon d={IC.eye} size={12} /> Ko'rish
+                                          <Icon d={IC.trash} size={12} />
                                         </button>
-                                      ) : lessonDone ? (
-                                        <button
-                                          onClick={() => handleGenerateCert(s.id)}
-                                          disabled={certLoading}
-                                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 disabled:cursor-wait px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap"
-                                        >
-                                          <Icon d={IC.award} size={12} />
-                                          {certLoading ? 'Yaratilmoqda...' : 'Sertifikat berish'}
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => setLessonDoneMap(m => ({ ...m, [`${selectedCourse.id}_${s.id}`]: true }))}
-                                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap"
-                                        >
-                                          <Icon d={IC.check} size={12} /> Dars yakunlash
-                                        </button>
-                                      )}
+                                      </div>
                                     </td>
                                   </tr>
                                 )
@@ -1092,9 +1156,18 @@ export default function TeacherDashboard() {
                               </button>
                             </div>
                           </div>
-                          {s.has_certificate && (
-                            <span className="ml-auto shrink-0 bg-emerald-100 text-emerald-700 text-[9px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">✓ Cert</span>
-                          )}
+                          <div className="ml-auto flex items-center gap-2 shrink-0">
+                            {s.has_certificate && (
+                              <span className="bg-emerald-100 text-emerald-700 text-[9px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">✓ Cert</span>
+                            )}
+                            <button
+                              onClick={() => handleDeleteStudent(s.id, `${s.first_name} ${s.last_name}`)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-100 transition shadow-xs"
+                              title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
+                            >
+                              <Icon d={IC.trash} size={11} />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="space-y-2 mt-4 pt-3 border-t border-slate-100/80 text-xs text-slate-600">
@@ -1203,17 +1276,50 @@ export default function TeacherDashboard() {
                   )}
                 </div>
 
-                {/* Search bar */}
-                <div className="relative">
-                  <Icon d={IC.search} size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={certSearch}
-                    onChange={e => setCertSearch(e.target.value)}
-                    placeholder="Ism, familiya, otasining ismi, pasport seriyasi bo'yicha qidirish..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition"
-                  />
+                {/* Search bar & Date filters */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="relative flex-1">
+                    <Icon d={IC.search} size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={certSearch}
+                      onChange={e => setCertSearch(e.target.value)}
+                      placeholder="Ism, familiya, otasining ismi, pasport seriyasi bo'yicha qidirish..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition"
+                    />
+                  </div>
+                  
+                  {/* Date range inputs */}
+                  <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200 rounded-xl p-1 px-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase">Sana:</span>
+                      <input
+                        type="date"
+                        value={certStartDate}
+                        onChange={e => setCertStartDate(e.target.value)}
+                        className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+                        title="Boshlanish sanasi"
+                      />
+                    </div>
+                    <span className="text-slate-300 font-bold">—</span>
+                    <input
+                      type="date"
+                      value={certEndDate}
+                      onChange={e => setCertEndDate(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+                      title="Tugash sanasi"
+                    />
+                    {(certStartDate || certEndDate) && (
+                      <button
+                        onClick={() => { setCertStartDate(''); setCertEndDate('') }}
+                        className="text-xs text-red-500 hover:text-red-700 ml-1.5 transition font-bold"
+                        title="Sana filtrini tozalash"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -315,6 +315,8 @@ export default function AdminDashboard() {
   const [selectedTeacherId, setSelectedTeacherId] = useState('')
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [previewCert, setPreviewCert] = useState(null)
+  const [certStartDate, setCertStartDate] = useState('')
+  const [certEndDate, setCertEndDate] = useState('')
 
   // ── Create user form ─────────────────────────────────────────────────────────
   const [role, setRole] = useState('TEACHER')
@@ -462,6 +464,34 @@ export default function AdminDashboard() {
     } else setError(`${t.resetPass}da xatolik yuz berdi.`)
   }
 
+  const handleDeleteStudent = async (studentId, studentName) => {
+    const confirmMsg = lang === 'ru' 
+      ? `Вы действительно хотите удалить студента ${studentName}? Все связанные сертификаты также будут удалены!`
+      : `Haqiqatan ham o'quvchi ${studentName}ni o'chirmoqchimisiz? Unga tegishli barcha sertifikatlar ham o'chib ketadi!`
+    
+    if (!window.confirm(confirmMsg)) return
+
+    try {
+      const r = await fetch(`${API}/admin/users/${studentId}/delete/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (r.ok) {
+        setToast(lang === 'ru' ? 'Студент успешно удален.' : "O'quvchi muvaffaqiyatli o'chirildi.")
+        setTimeout(() => setToast(''), 4500)
+        await fetchUsers()
+        await fetchCerts()
+      } else {
+        const d = await r.json()
+        setToast(`⚠ ${d.detail || (lang === 'ru' ? 'Ошибка при удалении.' : 'O\'chirishda xatolik.')}`)
+        setTimeout(() => setToast(''), 4500)
+      }
+    } catch {
+      setToast(lang === 'ru' ? '⚠ Ошибка сети.' : '⚠ Tarmoq xatoligi.')
+      setTimeout(() => setToast(''), 4500)
+    }
+  }
+
   // ── Filtered & paginated users ────────────────────────────────────────────────
   const roleMap = { students: 'STUDENT', teachers: 'TEACHER', admins: 'ADMIN' }
   const filteredUsers = useMemo(() => {
@@ -508,6 +538,29 @@ export default function AdminDashboard() {
       if (selectedTeacherId && c.teacher_id !== parseInt(selectedTeacherId)) return false
       if (selectedCourseId && c.course_id !== parseInt(selectedCourseId)) return false
       
+      // Date range filter
+      if (certStartDate || certEndDate) {
+        const parseDateDMY = (dmyStr) => {
+          if (!dmyStr) return null;
+          const parts = dmyStr.split('.');
+          if (parts.length !== 3) return null;
+          return new Date(parts[2], parts[1] - 1, parts[0]);
+        };
+        const certDate = parseDateDMY(c.issued_at);
+        if (certDate) {
+          if (certStartDate) {
+            const start = new Date(certStartDate);
+            start.setHours(0, 0, 0, 0);
+            if (certDate < start) return false;
+          }
+          if (certEndDate) {
+            const end = new Date(certEndDate);
+            end.setHours(23, 59, 59, 999);
+            if (certDate > end) return false;
+          }
+        }
+      }
+
       if (certSearch.trim()) {
         const q = certSearch.toLowerCase()
         return (
@@ -536,7 +589,7 @@ export default function AdminDashboard() {
       groups[uid].certificates.push(c)
     })
     return Object.values(groups)
-  }, [certs, selectedTeacherId, selectedCourseId, certSearch])
+  }, [certs, selectedTeacherId, selectedCourseId, certSearch, certStartDate, certEndDate])
 
   const pagedGroupedCerts = useMemo(() => {
     return groupedCerts.slice((certPage - 1) * PAGE_SIZE, certPage * PAGE_SIZE)
@@ -920,11 +973,21 @@ export default function AdminDashboard() {
                           )}
                           {section !== 'students' && <td className="py-3 px-4 text-slate-600 text-xs">{u.email || '—'}</td>}
                           <td className="py-3 px-4 text-center">
-                            <button onClick={() => handleResetPassword(u.id, u.username)}
-                              className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
-                              <Icon d={ICONS.reset} size={11} />
-                              {t.resetPass}
-                            </button>
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => handleResetPassword(u.id, u.username)}
+                                className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                                <Icon d={ICONS.reset} size={11} />
+                                {t.resetPass}
+                              </button>
+                              {u.role === 'STUDENT' && (
+                                <button onClick={() => handleDeleteStudent(u.id, `${u.first_name} ${u.last_name}`)}
+                                  className="inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-200 p-1.5 rounded-lg text-xs font-bold transition"
+                                  title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
+                                >
+                                  <Icon d={ICONS.trash} size={12} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1089,15 +1152,37 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* Reset Filters button */}
-                  {(selectedTeacherId || selectedCourseId) && (
+                  {(selectedTeacherId || selectedCourseId || certStartDate || certEndDate) && (
                     <button
-                      onClick={() => { setSelectedTeacherId(''); setSelectedCourseId(''); setCertPage(1) }}
+                      onClick={() => { setSelectedTeacherId(''); setSelectedCourseId(''); setCertStartDate(''); setCertEndDate(''); setCertPage(1) }}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-xl border border-red-150 transition"
                       title={t.filtersReset}
                     >
                       <Icon d={ICONS.reset} size={14} />
                     </button>
                   )}
+
+                  {/* Date range inputs */}
+                  <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200 rounded-xl p-1 px-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase">Sana:</span>
+                      <input
+                        type="date"
+                        value={certStartDate}
+                        onChange={e => { setCertStartDate(e.target.value); setCertPage(1) }}
+                        className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+                        title="Boshlanish sanasi"
+                      />
+                    </div>
+                    <span className="text-slate-300 font-bold">—</span>
+                    <input
+                      type="date"
+                      value={certEndDate}
+                      onChange={e => { setCertEndDate(e.target.value); setCertPage(1) }}
+                      className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+                      title="Tugash sanasi"
+                    />
+                  </div>
 
                   <SearchBar
                     value={certSearch}

@@ -19,7 +19,9 @@ from .views import (
     student_progress,
     admin_all_certificates,
     teacher_import_excel,
-    download_excel_template
+    download_excel_template,
+    admin_delete_user,
+    teacher_delete_student
 )
 
 urlpatterns = [
@@ -31,6 +33,7 @@ urlpatterns = [
     
     # Admin User management
     path('admin/users/', admin_users, name='admin_users'),
+    path('admin/users/<int:user_id>/delete/', admin_delete_user, name='admin_delete_user'),
     path('admin/reset-password/', admin_reset_password, name='admin_reset_password'),
     path('admin/teacher-stats/', admin_teacher_stats, name='admin_teacher_stats'),
     path('admin/certificates/', admin_all_certificates, name='admin_all_certificates'),
@@ -41,6 +44,7 @@ urlpatterns = [
     path('teacher/courses/<int:course_id>/import-excel/', teacher_import_excel, name='teacher_import_excel'),
     path('teacher/courses/download-template/', download_excel_template, name='download_excel_template'),
     path('teacher/students/', teacher_students, name='teacher_students'),
+    path('teacher/students/<int:student_id>/delete/', teacher_delete_student, name='teacher_delete_student'),
     path('teacher/students/<int:student_id>/toggle-lesson/', toggle_lesson, name='toggle_lesson'),
     path('teacher/students/<int:student_id>/generate-certificate/', generate_certificate, name='generate_certificate'),
     

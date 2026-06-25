@@ -878,3 +878,76 @@ def teacher_import_excel(request, course_id):
     except Exception as e:
         return Response({"detail": f"Faylni o'qishda xatolik yuz berdi: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_delete_user(request, user_id):
+    """
+    DELETE: Delete a user by ID. (Admin only)
+    """
+    if not is_admin_user(request.user):
+        return Response({"detail": "Ushbu amalni bajarish uchun ruxsatingiz yo'q (Admin talab etiladi)."}, status=status.HTTP_403_FORBIDDEN)
+        
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user.is_superuser or target_user == request.user:
+        return Response({"detail": "Tizim ma'murini yoki o'zingizni o'chira olmaysiz."}, status=status.HTTP_400_BAD_REQUEST)
+        
+    # Delete certificate files first
+    certs = Certificate.objects.filter(student=target_user)
+    for cert in certs:
+        if cert.pdf_file:
+            try:
+                cert.pdf_file.delete(save=False)
+            except:
+                pass
+        if cert.qr_code_image:
+            try:
+                cert.qr_code_image.delete(save=False)
+            except:
+                pass
+                
+    username = target_user.username
+    target_user.delete()
+    return Response({"detail": f"Foydalanuvchi {username} muvaffaqiyatli o'chirildi."})
+
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def teacher_delete_student(request, student_id):
+    """
+    DELETE: Delete a student. (Teacher only, must be their student)
+    """
+    if not is_teacher_user(request.user):
+        return Response({"detail": "Faqat o'qituvchilar o'quvchilarni o'chira oladi."}, status=status.HTTP_403_FORBIDDEN)
+        
+    student_user = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
+    
+    # Check if student is taught by this teacher or is in one of their courses
+    is_authorized = is_admin_user(request.user)
+    if not is_authorized:
+        profile_exists = StudentProfile.objects.filter(user=student_user, teacher=request.user).exists()
+        course_exists = Course.objects.filter(teacher=request.user, students=student_user).exists()
+        is_authorized = profile_exists or course_exists
+        
+    if not is_authorized:
+        return Response({"detail": "Ushbu o'quvchini o'chirishga ruxsatingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
+        
+    # Delete certificate files first
+    certs = Certificate.objects.filter(student=student_user)
+    for cert in certs:
+        if cert.pdf_file:
+            try:
+                cert.pdf_file.delete(save=False)
+            except:
+                pass
+        if cert.qr_code_image:
+            try:
+                cert.qr_code_image.delete(save=False)
+            except:
+                pass
+                
+    username = student_user.username
+    student_user.delete()
+    return Response({"detail": f"O'quvchi {username} muvaffaqiyatli o'chirildi."})
+
+
