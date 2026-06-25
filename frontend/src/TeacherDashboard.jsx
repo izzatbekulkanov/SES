@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import UserProfile from './UserProfile'
 
@@ -35,6 +35,10 @@ const IC = {
   search:   'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
   bell:     'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0',
   trash:    'M3 6h18 M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2',
+  edit:     'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z',
+  chevronL: 'M15 18l-6-6 6-6',
+  chevronR: 'M9 18l6-6-6-6',
+  reset:    'M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15',
 }
 
 // ── Helper to resolve media URLs ──────────────────────────────────────────────
@@ -149,6 +153,47 @@ function Confetti({ onDone }) {
   )
 }
 
+// ── Pagination ───────────────────────────────────────────────────────────────
+function Pagination({ page, total, pageSize, onPage, lang }) {
+  const pages = Math.ceil(total / pageSize)
+  if (pages <= 1) return null
+  const items = []
+  const delta = 1
+  const left = Math.max(1, page - delta)
+  const right = Math.min(pages, page + delta)
+  if (left > 1) { items.push(1); if (left > 2) items.push('...') }
+  for (let i = left; i <= right; i++) items.push(i)
+  if (right < pages) { if (right < pages - 1) items.push('...'); items.push(pages) }
+
+  return (
+    <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100 shrink-0">
+      <span className="text-xs text-slate-400">
+        {total} {lang === 'ru' ? 'шт.' : 'ta'} • {lang === 'ru' ? 'Страница' : 'Sahifa'} {page}/{pages}
+      </span>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onPage(page - 1)} disabled={page === 1}
+          className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-500 transition">
+          <Icon d={IC.chevronL} size={15} />
+        </button>
+        {items.map((item, i) =>
+          item === '...'
+            ? <span key={`e${i}`} className="px-1 text-slate-400 text-xs">…</span>
+            : <button key={item} onClick={() => onPage(item)}
+                className={`w-7 h-7 rounded-lg text-xs font-semibold transition ${
+                  page === item
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}>{item}</button>
+        )}
+        <button onClick={() => onPage(page + 1)} disabled={page === pages}
+          className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-500 transition">
+          <Icon d={IC.chevronR} size={15} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TeacherDashboard() {
   const navigate = useNavigate()
@@ -178,6 +223,7 @@ export default function TeacherDashboard() {
 
   // ── Cert search & date filters ──────────────────────────────────────────────
   const [certSearch, setCertSearch] = useState('')
+  const [selectedCourseId, setSelectedCourseId] = useState('')
   const [certStartDate, setCertStartDate] = useState('')
   const [certEndDate, setCertEndDate] = useState('')
 
@@ -514,73 +560,91 @@ export default function TeacherDashboard() {
     return !c.is_active
   }).length
 
+  const uniqueCourses = useMemo(() => {
+    const map = {}
+    certs.forEach(c => {
+      if (c.course_id && c.course_name) {
+        map[c.course_id] = c.course_name
+      }
+    })
+    return Object.entries(map).map(([id, name]) => ({ id: parseInt(id), name }))
+  }, [certs])
+
   // Filter certs based on search query
-  const filteredCerts = certs.filter(cert => {
-    if (certStartDate || certEndDate) {
-      const parseDateDMY = (dmyStr) => {
-        if (!dmyStr) return null;
-        const parts = dmyStr.split('.');
-        if (parts.length !== 3) return null;
-        return new Date(parts[2], parts[1] - 1, parts[0]);
-      };
-      const certDate = parseDateDMY(cert.issued_at);
-      if (certDate) {
-        if (certStartDate) {
-          const start = new Date(certStartDate);
-          start.setHours(0, 0, 0, 0);
-          if (certDate < start) return false;
-        }
-        if (certEndDate) {
-          const end = new Date(certEndDate);
-          end.setHours(23, 59, 59, 999);
-          if (certDate > end) return false;
+  const filteredCerts = useMemo(() => {
+    return certs.filter(cert => {
+      if (selectedCourseId && cert.course_id !== parseInt(selectedCourseId)) return false
+
+      if (certStartDate || certEndDate) {
+        const parseDateDMY = (dmyStr) => {
+          if (!dmyStr) return null;
+          const parts = dmyStr.split('.');
+          if (parts.length !== 3) return null;
+          return new Date(parts[2], parts[1] - 1, parts[0]);
+        };
+        const certDate = parseDateDMY(cert.issued_at);
+        if (certDate) {
+          if (certStartDate) {
+            const start = new Date(certStartDate);
+            start.setHours(0, 0, 0, 0);
+            if (certDate < start) return false;
+          }
+          if (certEndDate) {
+            const end = new Date(certEndDate);
+            end.setHours(23, 59, 59, 999);
+            if (certDate > end) return false;
+          }
         }
       }
-    }
 
-    if (!certSearch.trim()) return true
+      if (!certSearch.trim()) return true
 
-    const query = certSearch.toLowerCase().trim()
+      const query = certSearch.toLowerCase().trim()
 
-    // 1. Check student name, username, course name, certificate ID directly from cert
-    const name = (cert.student_name || '').toLowerCase()
-    const username = (cert.student_username || '').toLowerCase()
-    const course = (cert.course_name || '').toLowerCase()
-    const certId = (cert.certificate_id || '').toLowerCase()
-
-    if (
-      name.includes(query) ||
-      username.includes(query) ||
-      course.includes(query) ||
-      certId.includes(query)
-    ) {
-      return true
-    }
-
-    // 2. Find matching student in students or allStudents to check passport_series, passport_number, father_name
-    const student =
-      students.find(s => s.username === cert.student_username) ||
-      allStudents.find(s => s.username === cert.student_username)
-
-    if (student) {
-      const fatherName = (student.father_name || '').toLowerCase()
-      const passportSeries = (student.passport_series || '').toLowerCase()
-      const passportNumber = (student.passport_number || '').toLowerCase()
-      const passportFull = `${passportSeries}${passportNumber}`.replace(/\s+/g, '').toLowerCase()
-      const queryClean = query.replace(/\s+/g, '')
+      // 1. Check student name, username, course name, certificate ID directly from cert
+      const name = (cert.student_name || '').toLowerCase()
+      const username = (cert.student_username || '').toLowerCase()
+      const course = (cert.course_name || '').toLowerCase()
+      const certId = (cert.certificate_id || '').toLowerCase()
 
       if (
-        fatherName.includes(query) ||
-        passportSeries.includes(query) ||
-        passportNumber.includes(query) ||
-        passportFull.includes(queryClean)
+        name.includes(query) ||
+        username.includes(query) ||
+        course.includes(query) ||
+        certId.includes(query)
       ) {
         return true
       }
-    }
 
-    return false
-  })
+      // 2. Find matching student in students or allStudents to check passport_series, passport_number, father_name
+      const student =
+        students.find(s => s.username === cert.student_username) ||
+        allStudents.find(s => s.username === cert.student_username)
+
+      if (student) {
+        const fatherName = (student.father_name || '').toLowerCase()
+        const passportSeries = (student.passport_series || '').toLowerCase()
+        const passportNumber = (student.passport_number || '').toLowerCase()
+        const passportFull = `${passportSeries}${passportNumber}`.replace(/\s+/g, '').toLowerCase()
+        const queryClean = query.replace(/\s+/g, '')
+
+        if (
+          fatherName.includes(query) ||
+          passportSeries.includes(query) ||
+          passportNumber.includes(query) ||
+          passportFull.includes(queryClean)
+        ) {
+          return true
+        }
+      }
+
+      return false
+    })
+  }, [certs, certSearch, certStartDate, certEndDate, selectedCourseId, students, allStudents])
+
+  const pagedCerts = useMemo(() => {
+    return filteredCerts.slice((certPage - 1) * PAGE_SIZE, certPage * PAGE_SIZE)
+  }, [filteredCerts, certPage])
 
 
   const navItems = [
@@ -1253,43 +1317,46 @@ export default function TeacherDashboard() {
 
           {/* ══ CERTS SECTION ══ */}
           {section === 'certs' && (
-            <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden p-5">
-
-              {/* Header + Search */}
-              <div className="shrink-0 mb-4">
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div>
-                    <h2 className="font-bold text-slate-900 text-lg">Sertifikatlar</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {certSearch.trim()
-                        ? `${filteredCerts.length} ta natija topildi`
-                        : `${certs.length} ta sertifikat berilgan`}
-                    </p>
-                  </div>
-                  {certSearch && (
-                    <button
-                      onClick={() => setCertSearch('')}
-                      className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 mt-1 transition shrink-0"
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shrink-0 pb-4 border-b border-slate-100">
+                <div>
+                  <h2 className="font-bold text-slate-900 text-lg">
+                    {lang === 'ru' ? 'Сертификаты' : 'Sertifikatlar'}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {lang === 'ru' ? 'Всего:' : 'Jami:'} {certs.length} {lang === 'ru' ? 'сертификатов' : 'ta sertifikat'}
+                  </p>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Course Filter */}
+                  <div className="relative min-w-[190px]">
+                    <select
+                      value={selectedCourseId}
+                      onChange={e => { setSelectedCourseId(e.target.value); setCertPage(1) }}
+                      className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition appearance-none cursor-pointer"
                     >
-                      <Icon d={IC.close} size={13} /> Tozalash
+                      <option value="">{lang === 'ru' ? "Все курсы" : "Barcha darslar"}</option>
+                      {uniqueCourses.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <Icon d="M6 9l6 6 6-6" size={12} />
+                    </div>
+                  </div>
+
+                  {/* Reset Filters button */}
+                  {(selectedCourseId || certStartDate || certEndDate) && (
+                    <button
+                      onClick={() => { setSelectedCourseId(''); setCertStartDate(''); setCertEndDate(''); setCertPage(1) }}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-xl border border-red-150 transition"
+                      title={lang === 'ru' ? "Сбросить фильтры" : "Filtrlarni tozalash"}
+                    >
+                      <Icon d={IC.reset} size={14} />
                     </button>
                   )}
-                </div>
 
-                {/* Search bar & Date filters */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <div className="relative flex-1">
-                    <Icon d={IC.search} size={15}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={certSearch}
-                      onChange={e => setCertSearch(e.target.value)}
-                      placeholder="Ism, familiya, otasining ismi, pasport seriyasi bo'yicha qidirish..."
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition"
-                    />
-                  </div>
-                  
                   {/* Date range inputs */}
                   <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200 rounded-xl p-1 px-2.5">
                     <div className="flex items-center gap-1.5">
@@ -1297,7 +1364,7 @@ export default function TeacherDashboard() {
                       <input
                         type="date"
                         value={certStartDate}
-                        onChange={e => setCertStartDate(e.target.value)}
+                        onChange={e => { setCertStartDate(e.target.value); setCertPage(1) }}
                         className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
                         title="Boshlanish sanasi"
                       />
@@ -1306,115 +1373,167 @@ export default function TeacherDashboard() {
                     <input
                       type="date"
                       value={certEndDate}
-                      onChange={e => setCertEndDate(e.target.value)}
+                      onChange={e => { setCertEndDate(e.target.value); setCertPage(1) }}
                       className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
                       title="Tugash sanasi"
                     />
-                    {(certStartDate || certEndDate) && (
-                      <button
-                        onClick={() => { setCertStartDate(''); setCertEndDate('') }}
-                        className="text-xs text-red-500 hover:text-red-700 ml-1.5 transition font-bold"
-                        title="Sana filtrini tozalash"
-                      >
-                        ✕
-                      </button>
-                    )}
+                  </div>
+
+                  {/* Excel Export Button */}
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm"
+                    title={lang === 'ru' ? "Экспорт в Excel" : "Excelga eksport qilish"}
+                  >
+                    <Icon d={IC.download} size={14} />
+                    <span>{lang === 'ru' ? "Экспорт Excel" : "Excel eksport"}</span>
+                  </button>
+
+                  <div className="relative">
+                    <Icon d={IC.search} size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={certSearch}
+                      onChange={e => { setCertSearch(e.target.value); setCertPage(1) }}
+                      placeholder={lang === 'ru' ? "Поиск сертификатов..." : "Sertifikatlarni qidirish..."}
+                      className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400 transition"
+                    />
                   </div>
                 </div>
               </div>
 
               {loadingCerts ? (
-                <div className="flex-1 flex items-center justify-center text-slate-400">Yuklanmoqda...</div>
-              ) : certs.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
-                  <Icon d={IC.cert} size={40} className="opacity-20" />
-                  <p className="text-sm">Hali sertifikatlar yo'q</p>
+                <div className="flex-1 flex items-center justify-center text-slate-400 font-semibold">
+                  {lang === 'ru' ? 'Загрузка...' : 'Yuklanmoqda...'}
                 </div>
-              ) : filteredCerts.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
-                  <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
-                    <Icon d={IC.search} size={26} className="opacity-40" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-slate-600">Natija topilmadi</p>
-                    <p className="text-xs text-slate-400 mt-1">"<span className="font-mono">{certSearch}</span>" bo'yicha hech narsa topilmadi</p>
-                  </div>
-                  <button onClick={() => setCertSearch('')}
-                    className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold underline transition">
-                    Qidiruvni tozalash
-                  </button>
+              ) : pagedCerts.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-400">
+                  <Icon d={IC.cert} size={40} className="opacity-20" />
+                  <p className="text-sm font-semibold">
+                    {lang === 'ru' ? 'Сертификаты не найдены' : 'Sertifikatlar topilmadi'}
+                  </p>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[600px]">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                        <th className="py-3 px-4 rounded-tl-xl">{lang === 'ru' ? 'Студент' : "O'quvchi"}</th>
-                        <th className="py-3 px-4">{lang === 'ru' ? 'ID сертификата' : 'Sertifikat ID'}</th>
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead className="sticky top-0 z-10 bg-slate-50">
+                      <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        <th className="py-3 px-4 rounded-tl-xl w-[60px]">#</th>
+                        <th className="py-3 px-4 w-[240px]">{lang === 'ru' ? 'Студент' : "O'quvchi"}</th>
+                        <th className="py-3 px-4 w-[140px]">{lang === 'ru' ? 'ID сертификата' : 'Sertifikat ID'}</th>
                         <th className="py-3 px-4">{lang === 'ru' ? 'Курс' : 'Kurs'}</th>
-                        <th className="py-3 px-4">{lang === 'ru' ? 'Дата выдачи' : 'Berilgan sana'}</th>
-                        <th className="py-3 px-4">{lang === 'ru' ? 'Срок действия' : 'Amal qilish muddati'}</th>
-                        <th className="py-3 px-4 text-center rounded-tr-xl">{lang === 'ru' ? 'Статус' : 'Holati'}</th>
+                        <th className="py-3 px-4 w-[115px]">{lang === 'ru' ? 'Дата выдачи' : 'Berilgan sana'}</th>
+                        <th className="py-3 px-4 w-[115px]">{lang === 'ru' ? 'Срок действия' : 'Amal qilish'}</th>
+                        <th className="py-3 px-4 w-[115px]">{lang === 'ru' ? 'Статус' : 'Holati'}</th>
+                        <th className="py-3 px-4 rounded-tr-xl w-[180px] text-right pr-6">{lang === 'ru' ? 'Действия' : 'Amallar'}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
-                      {filteredCerts.map(cert => (
-                        <tr key={cert.certificate_id} className="hover:bg-emerald-50/20 transition-colors">
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {pagedCerts.map((cert, index) => (
+                        <tr key={cert.certificate_id} className="hover:bg-slate-50/30 transition-colors">
+                          {/* Tartib raqami */}
+                          <td className="py-3 px-4 text-slate-500 font-mono font-bold">
+                            {(certPage - 1) * PAGE_SIZE + index + 1}
+                          </td>
+                          
+                          {/* Student Details */}
                           <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar src={cert.student_picture} name={cert.student_name} />
-                              <div>
-                                <p className="font-semibold text-slate-900">{cert.student_name}</p>
-                                <code className="text-[10px] text-slate-400">@{cert.student_username}</code>
+                            <div className="flex items-center gap-2.5">
+                              <Avatar src={cert.student_picture} name={cert.student_name} size="sm" />
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 truncate max-w-[180px]">{cert.student_name}</p>
+                                <code className="text-[10px] text-slate-400 font-mono">@{cert.student_username}</code>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <code className="text-xs font-bold font-mono bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg border border-emerald-100">
-                              {cert.certificate_id}
-                            </code>
+
+                          {/* Certificate ID */}
+                          <td className="py-3 px-4 font-mono font-bold text-slate-650">
+                            {cert.certificate_id}
                           </td>
-                          <td className="py-3 px-4 text-slate-600 text-xs max-w-[180px] truncate">{cert.course_name}</td>
-                          <td className="py-3 px-4">
-                            <span className="bg-violet-50 text-violet-700 border border-violet-100 text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1">
-                              <Icon d={IC.calendar} size={10} className="shrink-0 text-violet-600" />
-                              {cert.issued_at}
-                            </span>
+
+                          {/* Course Name */}
+                          <td className="py-3 px-4 font-semibold text-slate-800">
+                            {cert.course_name}
                           </td>
-                          <td className="py-3 px-4">
-                            <span className="bg-orange-50 text-orange-700 border border-orange-100 text-[10px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1">
-                              <Icon d={IC.calendar} size={10} className="shrink-0 text-orange-600" />
-                              {cert.expires_at}
-                            </span>
+
+                          {/* Issued Date */}
+                          <td className="py-3 px-4 text-slate-500 font-semibold">
+                            {cert.issued_at || '—'}
                           </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-3">
-                              {cert.is_active
-                                ? <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] px-2.5 py-0.5 rounded-full font-bold">✓ Faol</span>
-                                : <span className="bg-slate-100 text-slate-500 text-[10px] px-2.5 py-0.5 rounded-full font-bold">Tugagan</span>
-                              }
-                              {cert.pdf_file && (
-                                <button onClick={() => setPreviewCert(cert)}
-                                  className="w-7 h-7 flex items-center justify-center rounded bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200 transition shadow-xs"
-                                  title="Ko'rish"
+
+                          {/* Expires Date */}
+                          <td className="py-3 px-4 text-slate-500 font-semibold">
+                            {cert.expires_at || '—'}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-4">
+                            {cert.is_active ? (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-150 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                {lang === 'ru' ? 'Активен' : 'Faol'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                {lang === 'ru' ? 'Истек' : 'Tugagan'}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-4 text-right pr-6">
+                            <div className="inline-flex items-center gap-1 justify-end">
+                              <button 
+                                onClick={() => setPreviewCert(cert)}
+                                className="p-1.5 bg-slate-50 hover:bg-violet-50 text-slate-500 hover:text-violet-600 border border-slate-200 hover:border-violet-300 rounded-lg transition"
+                                title="Ko'rish"
+                              >
+                                <Icon d={IC.eye} size={13} />
+                              </button>
+
+                              {cert.pdf_file ? (
+                                <a 
+                                  href={getMediaUrl(cert.pdf_file)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 border border-emerald-250 rounded-lg transition inline-flex items-center justify-center"
+                                  title={lang === 'ru' ? 'Скачать PDF' : 'PDF yuklab olish'}
                                 >
-                                  <Icon d={IC.eye} size={13} />
-                                </button>
+                                  <Icon d={IC.download} size={13} />
+                                </a>
+                              ) : (
+                                <span className="p-1.5 bg-slate-50 text-slate-350 border border-slate-100 rounded-lg cursor-not-allowed inline-flex items-center justify-center" title="PDF mavjud emas">
+                                  <Icon d={IC.download} size={13} className="opacity-40" />
+                                </span>
                               )}
-                              <button onClick={() => navigate(`/verify/${cert.certificate_id}`)}
-                                className="w-7 h-7 flex items-center justify-center rounded bg-slate-50 hover:bg-violet-50 text-slate-500 hover:text-violet-600 border border-slate-200 transition shadow-xs"
+
+                              <a 
+                                href={`/verify/${cert.certificate_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg transition inline-flex items-center justify-center"
                                 title="Tekshirish"
                               >
-                                <Icon d={IC.cert} size={12} />
+                                <Icon d={IC.check} size={13} />
+                              </a>
+
+                              <button 
+                                onClick={() => handleStartEditCert(cert)}
+                                className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700 border border-indigo-200 rounded-lg transition inline-flex items-center justify-center"
+                                title={lang === 'ru' ? 'Редактировать ID' : "ID ni tahrirlash"}
+                              >
+                                <Icon d={IC.edit} size={13} />
                               </button>
-                              {cert.pdf_file && (
-                                <a href={getMediaUrl(cert.pdf_file)} target="_blank" rel="noreferrer"
-                                  className="w-7 h-7 flex items-center justify-center rounded bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200 transition shadow-xs"
-                                  title="PDF yuklab olish"
-                                >
-                                  <Icon d={IC.download} size={12} />
-                                </a>
-                              )}
+
+                              <button 
+                                onClick={() => handleDeleteCertificate(cert.certificate_id)}
+                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-lg transition"
+                                title={lang === 'ru' ? 'Удалить сертификат' : "Sertifikatni o'chirish"}
+                              >
+                                <Icon d={IC.trash} size={13} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1423,6 +1542,8 @@ export default function TeacherDashboard() {
                   </table>
                 </div>
               )}
+
+              <Pagination page={certPage} total={filteredCerts.length} pageSize={PAGE_SIZE} onPage={setCertPage} lang={lang} />
             </div>
           )}
 
@@ -1888,6 +2009,220 @@ export default function TeacherDashboard() {
           )
         })}
       </div>
+
+      {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
+
+      {/* ── Excel Export Modal ── */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Icon d={IC.cert} size={18} className="text-emerald-600" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {lang === 'ru' ? 'Экспорт в Excel' : 'Excelga eksport qilish'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowExportModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+              >
+                <Icon d={IC.close} size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleExportExcel}>
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-slate-500">
+                  {lang === 'ru'
+                    ? "Выберите диапазон дат для загрузки сертификатов в формате Excel. Если вы оставите даты пустыми, все сертификаты будут экспортированы."
+                    : "Sertifikatlarni Excel formatida yuklab olish uchun sana oralig'ini tanlang. Sanalarni bo'sh qoldirsangiz, barcha sertifikatlar eksport qilinadi."}
+                </p>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Дата начала' : 'Boshlanish sanasi'}
+                  </label>
+                  <input 
+                    type="date" 
+                    value={exportStartDate} 
+                    onChange={e => setExportStartDate(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-slate-700" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Дата окончания' : 'Tugash sanasi'}
+                  </label>
+                  <input 
+                    type="date" 
+                    value={exportEndDate} 
+                    onChange={e => setExportEndDate(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-slate-700" 
+                  />
+                </div>
+              </div>
+              
+              <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
+                >
+                  {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+                >
+                  {lang === 'ru' ? 'Экспорт' : 'Eksport qilish'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Certificate Delete Confirmation Modal ── */}
+      {deletingCertId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Icon d={IC.trash} size={18} className="text-red-500" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {lang === 'ru' ? 'Удаление сертификата' : "Sertifikatni o'chirish"}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setDeletingCertId(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+              >
+                <Icon d={IC.close} size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-650">
+                {lang === 'ru' 
+                  ? `Вы действительно хотите удалить этот сертификат (${deletingCertId})?`
+                  : `Haqiqatan ham ushbu sertifikatni (${deletingCertId}) o'chirmoqchimisiz?`}
+              </p>
+              <p className="text-xs text-red-500 font-semibold bg-red-50 border border-red-100 p-2.5 rounded-xl">
+                {lang === 'ru'
+                  ? '⚠ Внимание: это действие необратимо и файл сертификата будет безвозвратно удален с сервера.'
+                  : "⚠ Diqqat: ushbu amalni ortga qaytarib bo'lmaydi va sertifikat fayli serverdan butunlay o'chiriladi."}
+              </p>
+            </div>
+            
+            <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+              <button 
+                type="button"
+                onClick={() => setDeletingCertId(null)}
+                className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
+              >
+                {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+              </button>
+              <button 
+                onClick={submitDeleteCertificate}
+                className="bg-red-650 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+              >
+                {lang === 'ru' ? 'Удалить' : "O'chirish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Certificate ID Edit Modal ── */}
+      {editingCert && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-scaleUp">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Icon d={IC.edit} size={18} className="text-indigo-600" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {lang === 'ru' ? 'Редактировать ID сертификата' : "Sertifikat ID sini tahrirlash"}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setEditingCert(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+              >
+                <Icon d={IC.close} size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={submitEditCertificate}>
+              <div className="p-5 space-y-4">
+                <div className="space-y-1 bg-slate-50 border border-slate-150 p-3 rounded-xl">
+                  <p className="text-xs text-slate-600">
+                    <b>{lang === 'ru' ? 'Студент' : "O'quvchi"}:</b> {editingCert.student_name}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    <b>{lang === 'ru' ? 'Курс' : "Kurs"}:</b> {editingCert.course_name}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    <b>{lang === 'ru' ? 'Текущий ID' : "Hozirgi ID"}:</b> <span className="font-mono text-slate-700 font-bold">{editingCert.certificate_id}</span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                    {lang === 'ru' ? 'Новый ID (префикс "ses-" обязателен)' : 'Yangi ID ("ses-" prefiksi majburiy)'}
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={newCertId} 
+                      onChange={e => handleIdChange(e.target.value)}
+                      placeholder="ses-12345"
+                      className={`w-full px-3 py-2.5 border rounded-xl text-sm outline-none font-mono font-bold transition ${
+                        editCertError 
+                          ? 'border-red-300 focus:ring-2 focus:ring-red-200 focus:border-red-400 text-red-700' 
+                          : idAvailable === true && newCertId !== editingCert.certificate_id
+                          ? 'border-emerald-300 focus:ring-2 focus:ring-emerald-250 focus:border-emerald-400 text-emerald-700'
+                          : 'border-slate-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 text-slate-700'
+                      }`} 
+                    />
+                    {checkingId && (
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                        <span className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {editCertError ? (
+                    <p className="text-[11px] text-red-500 font-semibold mt-1.5 flex items-center gap-1.5 bg-red-50/50 p-2 rounded-lg border border-red-100">
+                      <span>⚠</span> {editCertError}
+                    </p>
+                  ) : idAvailable === true && newCertId !== editingCert.certificate_id ? (
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1.5 flex items-center gap-1.5 bg-emerald-50/50 p-2 rounded-lg border border-emerald-100">
+                      <span>✓</span> {lang === 'ru' ? 'ID свободен и готов к сохранению' : "ID bo'sh va saqlashga tayyor"}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              
+              <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setEditingCert(null)}
+                  className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 transition"
+                >
+                  {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}
+                </button>
+                <button 
+                  type="submit"
+                  disabled={!!editCertError || checkingId || !idAvailable || newCertId === editingCert.certificate_id}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm"
+                >
+                  {lang === 'ru' ? 'Сохранить' : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
 

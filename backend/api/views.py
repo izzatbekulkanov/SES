@@ -955,12 +955,18 @@ def teacher_delete_student(request, student_id):
 @permission_classes([permissions.IsAuthenticated])
 def admin_delete_certificate(request, certificate_id):
     """
-    DELETE: Delete a certificate by its certificate_id. (Admin only)
+    DELETE: Delete a certificate by its certificate_id. (Admin and Teacher)
     """
-    if not is_admin_user(request.user):
-        return Response({"detail": "Ushbu amalni bajarish uchun ruxsatingiz yo'q (Admin talab etiladi)."}, status=status.HTTP_403_FORBIDDEN)
+    is_admin = is_admin_user(request.user)
+    is_teacher = is_teacher_user(request.user)
+
+    if not is_admin and not is_teacher:
+        return Response({"detail": "Ushbu amalni bajarish uchun ruxsatingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
         
     cert = get_object_or_404(Certificate, certificate_id=certificate_id)
+    
+    if not is_admin and cert.course.teacher != request.user:
+        return Response({"detail": "Faqat o'zingizning o'quvchilaringiz sertifikatini o'chira olasiz."}, status=status.HTTP_403_FORBIDDEN)
     
     # Delete physical files from disk
     if cert.pdf_file:
@@ -986,13 +992,19 @@ def admin_export_certificates_excel(request):
     Export certificates to an Excel sheet.
     Supports optional date filtering via query params: start_date and end_date.
     """
-    if not is_admin_user(request.user):
-        return Response({"detail": "Faqat administratorlar sertifikatlarni eksport qila oladilar."}, status=status.HTTP_403_FORBIDDEN)
+    is_admin = is_admin_user(request.user)
+    is_teacher = is_teacher_user(request.user)
+
+    if not is_admin and not is_teacher:
+        return Response({"detail": "Ushbu amalni bajarish uchun ruxsatingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
         
     start_date = request.GET.get('start_date', '').strip()
     end_date = request.GET.get('end_date', '').strip()
     
-    certs = Certificate.objects.select_related('student', 'course', 'course__teacher').order_by('-issued_at')
+    if is_admin:
+        certs = Certificate.objects.select_related('student', 'course', 'course__teacher').order_by('-issued_at')
+    else:
+        certs = Certificate.objects.filter(course__teacher=request.user).select_related('student', 'course', 'course__teacher').order_by('-issued_at')
     
     if start_date:
         try:
@@ -1125,7 +1137,7 @@ def admin_check_certificate_id(request):
     GET: Check if a certificate ID already exists.
     Query param: id=ses-...
     """
-    if not is_admin_user(request.user):
+    if not is_admin_user(request.user) and not is_teacher_user(request.user):
         return Response({"detail": "Ruxsat berilmagan."}, status=status.HTTP_403_FORBIDDEN)
         
     cert_id = request.GET.get('id', '').strip()
@@ -1140,15 +1152,18 @@ def admin_check_certificate_id(request):
 @permission_classes([permissions.IsAuthenticated])
 def admin_edit_certificate_id(request, certificate_id):
     """
-    POST: Edit a certificate ID (Admin only).
+    POST: Edit a certificate ID (Admin and Teacher).
     Body: {"new_id": "ses-..."}
     """
     import os
     from django.conf import settings
     from .utils import generate_pdf_and_qr
 
-    if not is_admin_user(request.user):
-        return Response({"detail": "Faqat administratorlar sertifikat ID sini tahrirlashi mumkin."}, status=status.HTTP_403_FORBIDDEN)
+    is_admin = is_admin_user(request.user)
+    is_teacher = is_teacher_user(request.user)
+
+    if not is_admin and not is_teacher:
+        return Response({"detail": "Ushbu amalni bajarish uchun ruxsatingiz yo'q."}, status=status.HTTP_403_FORBIDDEN)
 
     new_id = request.data.get('new_id', '').strip()
     if not new_id:
@@ -1167,6 +1182,9 @@ def admin_edit_certificate_id(request, certificate_id):
         return Response({"detail": "Ushbu ID dagi sertifikat allaqachon mavjud."}, status=status.HTTP_400_BAD_REQUEST)
 
     cert = get_object_or_404(Certificate, certificate_id=certificate_id)
+
+    if not is_admin and cert.course.teacher != request.user:
+        return Response({"detail": "Faqat o'zingizning o'quvchilaringiz sertifikatini tahrirlashingiz mumkin."}, status=status.HTTP_403_FORBIDDEN)
 
     # 1. Delete old physical files from disk
     old_pdf_path = cert.pdf_file.path if cert.pdf_file else None
