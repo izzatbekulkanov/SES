@@ -327,14 +327,17 @@ export default function AdminDashboard() {
   const [idAvailable, setIdAvailable] = useState(null)
   const [editCertError, setEditCertError] = useState('')
 
-  // ── Edit Student Form (Admin view) ──────────────────────────────────────────
-  const [editingStudent, setEditingStudent] = useState(null)
+  // ── Edit User Form (Admin view) ──────────────────────────────────────────
+  const [editingUser, setEditingUser] = useState(null)
   const [esFirst, setEsFirst] = useState('')
   const [esLast, setEsLast] = useState('')
   const [esFather, setEsFather] = useState('')
   const [esPhone, setEsPhone] = useState('')
   const [esPS, setEsPS] = useState('')
   const [esPN, setEsPN] = useState('')
+  const [esEmail, setEsEmail] = useState('')
+  const [esJSHSHIR, setEsJSHSHIR] = useState('')
+  const [esBirth, setEsBirth] = useState('')
   const [esPic, setEsPic] = useState(null)
   const [esErr, setEsErr] = useState('')
   const [esLoading, setEsLoading] = useState(false)
@@ -513,14 +516,17 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleStartEditStudent = (student) => {
-    setEditingStudent(student)
-    setEsFirst(student.first_name || '')
-    setEsLast(student.last_name || '')
-    setEsFather(student.father_name || '')
-    setEsPhone(student.phone_number || '')
-    setEsPS(student.passport_series || '')
-    setEsPN(student.passport_number || '')
+  const handleStartEditUser = (user) => {
+    setEditingUser(user)
+    setEsFirst(user.first_name || '')
+    setEsLast(user.last_name || '')
+    setEsFather(user.father_name || '')
+    setEsPhone(user.phone_number || '')
+    setEsPS(user.passport_series || '')
+    setEsPN(user.passport_number || '')
+    setEsEmail(user.email || '')
+    setEsJSHSHIR(user.jshshir || '')
+    setEsBirth(user.birth_date || '')
     setEsPic(null)
     setEsErr('')
     setEsLoading(false)
@@ -546,7 +552,7 @@ export default function AdminDashboard() {
     setEsPhone(formatted);
   };
 
-  const submitEditStudent = async (e) => {
+  const submitEditUser = async (e) => {
     e.preventDefault()
     setEsErr('')
     setEsLoading(true)
@@ -562,14 +568,24 @@ export default function AdminDashboard() {
       fd.append('first_name', esFirst)
       fd.append('last_name', esLast)
       fd.append('father_name', esFather)
-      fd.append('phone_number', esPhone)
       fd.append('passport_series', esPS.toUpperCase())
       fd.append('passport_number', esPN)
+      
+      if (editingUser.role === 'STUDENT') {
+        fd.append('phone_number', esPhone)
+      } else {
+        fd.append('email', esEmail)
+        fd.append('jshshir', esJSHSHIR)
+        if (esBirth) {
+          fd.append('birth_date', esBirth)
+        }
+      }
+
       if (esPic) {
         fd.append('profile_picture', esPic)
       }
 
-      const r = await fetch(`${API}/teacher/students/${editingStudent.id}/edit/`, {
+      const r = await fetch(`${API}/admin/users/${editingUser.id}/edit/`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -578,9 +594,9 @@ export default function AdminDashboard() {
       })
 
       if (r.ok) {
-        setToast(lang === 'ru' ? 'Информация о студенте успешно обновлена.' : "O'quvchi ma'lumotlari muvaffaqiyatli yangilandi.")
+        setToast(lang === 'ru' ? 'Информация успешно обновлена.' : "Ma'lumotlar muvaffaqiyatli yangilandi.")
         setTimeout(() => setToast(''), 4500)
-        setEditingStudent(null)
+        setEditingUser(null)
         await fetchUsers()
         await fetchCerts()
       } else {
@@ -1221,21 +1237,21 @@ export default function AdminDashboard() {
                                 <Icon d={ICONS.reset} size={11} />
                                 {t.resetPass}
                               </button>
+                              {(u.role === 'STUDENT' || u.role === 'TEACHER' || u.role === 'ADMIN') && (
+                                <button onClick={() => handleStartEditUser(u)}
+                                  className="inline-flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 border border-blue-200 p-1.5 rounded-lg text-xs font-bold transition"
+                                  title={lang === 'ru' ? 'Редактировать' : "Tahrirlash"}
+                                >
+                                  <Icon d={ICONS.edit} size={12} />
+                                </button>
+                              )}
                               {u.role === 'STUDENT' && (
-                                <>
-                                  <button onClick={() => handleStartEditStudent(u)}
-                                    className="inline-flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-800 border border-blue-200 p-1.5 rounded-lg text-xs font-bold transition"
-                                    title={lang === 'ru' ? 'Редактировать' : "Tahrirlash"}
-                                  >
-                                    <Icon d={ICONS.edit} size={12} />
-                                  </button>
-                                  <button onClick={() => handleDeleteStudent(u.id, `${u.first_name} ${u.last_name}`)}
-                                    className="inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-200 p-1.5 rounded-lg text-xs font-bold transition"
-                                    title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
-                                  >
-                                    <Icon d={ICONS.trash} size={12} />
-                                  </button>
-                                </>
+                                <button onClick={() => handleDeleteStudent(u.id, `${u.first_name} ${u.last_name}`)}
+                                  className="inline-flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-200 p-1.5 rounded-lg text-xs font-bold transition"
+                                  title={lang === 'ru' ? 'Удалить студента' : "O'quvchini o'chirish"}
+                                >
+                                  <Icon d={ICONS.trash} size={12} />
+                                </button>
                               )}
                             </div>
                           </td>
@@ -1891,22 +1907,27 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Edit Student Modal ── */}
-      {editingStudent && (
+      {/* ── Edit User Modal ── */}
+      {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto flex flex-col scale-in">
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-3xl shrink-0">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  {lang === 'ru' ? 'Редактировать студента' : "O'quvchi ma'lumotlarini tahrirlash"}
+                  {editingUser.role === 'STUDENT'
+                    ? (lang === 'ru' ? 'Редактировать студента' : "O'quvchi ma'lumotlarini tahrirlash")
+                    : (editingUser.role === 'TEACHER'
+                        ? (lang === 'ru' ? 'Редактировать преподавателя' : "O'qituvchi ma'lumotlarini tahrirlash")
+                        : (lang === 'ru' ? 'Редактировать администратора' : "Admin ma'lumotlarini tahrirlash"))
+                  }
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {lang === 'ru' ? 'Изменение данных профиля и документов' : "Profil va hujjat ma'lumotlarini o'zgartirish"}
                 </p>
               </div>
               <button 
-                onClick={() => setEditingStudent(null)}
+                onClick={() => setEditingUser(null)}
                 className="w-8 h-8 flex items-center justify-center rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-400 hover:text-slate-600 transition shadow-xs"
               >
                 <Icon d={ICONS.close} size={14} />
@@ -1921,12 +1942,12 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            <form onSubmit={submitEditStudent} className="flex-1 flex flex-col min-h-0">
+            <form onSubmit={submitEditUser} className="flex-1 flex flex-col min-h-0">
               <div className="p-6 space-y-4 overflow-y-auto min-h-0">
                 {/* Profile Pic Upload */}
                 <div className="flex items-center gap-4 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
                   <Avatar 
-                    src={esPic ? URL.createObjectURL(esPic) : editingStudent.profile_picture} 
+                    src={esPic ? URL.createObjectURL(esPic) : editingUser.profile_picture} 
                     name={`${esFirst} ${esLast}`} 
                     size="lg" 
                   />
@@ -2017,26 +2038,70 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Phone */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
-                    {lang === 'ru' ? 'Телефон' : 'Telefon'}
-                  </label>
-                  <input 
-                    type="text" 
-                    placeholder="+998 xx xxx xx xx" 
-                    value={esPhone} 
-                    onChange={handleEditPhoneChange}
-                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
-                  />
-                </div>
+                {/* Phone (Only for Students) */}
+                {editingUser.role === 'STUDENT' && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                      {lang === 'ru' ? 'Телефон' : 'Telefon'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="+998 xx xxx xx xx" 
+                      value={esPhone} 
+                      onChange={handleEditPhoneChange}
+                      className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                    />
+                  </div>
+                )}
+
+                {/* Email, JSHSHIR, Birth Date (Only for Teachers/Admins) */}
+                {editingUser.role !== 'STUDENT' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                        {lang === 'ru' ? 'Email' : 'Email'}
+                      </label>
+                      <input 
+                        type="email" 
+                        placeholder="user@ses.uz" 
+                        value={esEmail} 
+                        onChange={e => setEsEmail(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                        {lang === 'ru' ? 'ПИНФЛ (14 цифр)' : 'JSHSHIR (14 raqam)'}
+                      </label>
+                      <input 
+                        type="text" 
+                        maxLength={14}
+                        placeholder="12345678901234" 
+                        value={esJSHSHIR} 
+                        onChange={e => setEsJSHSHIR(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                        {lang === 'ru' ? 'Дата рождения' : "Tug'ilgan sana"}
+                      </label>
+                      <input 
+                        type="date" 
+                        value={esBirth} 
+                        onChange={e => setEsBirth(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-300 focus:bg-white outline-none transition text-slate-700" 
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Actions Footer */}
               <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5 rounded-b-3xl shrink-0">
                 <button 
                   type="button" 
-                  onClick={() => setEditingStudent(null)}
+                  onClick={() => setEditingUser(null)}
                   className="bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-5 py-2.5 rounded-xl border border-slate-200 transition"
                 >
                   {lang === 'ru' ? 'Отмена' : 'Bekor qilish'}

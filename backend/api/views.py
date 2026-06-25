@@ -143,6 +143,72 @@ def admin_users(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+def admin_edit_user(request, user_id):
+    """
+    POST: Edit a user's details (teachers, admins, students). Admin only.
+    """
+    if not is_admin_user(request.user):
+        return Response({"detail": "Faqat administratorlar foydalanuvchi ma'lumotlarini tahrirlay oladilar."}, status=status.HTTP_403_FORBIDDEN)
+        
+    user = get_object_or_404(User, id=user_id)
+    
+    first_name = request.data.get('first_name')
+    last_name = request.data.get('last_name')
+    father_name = request.data.get('father_name', '')
+    email = request.data.get('email', '')
+    passport_series = request.data.get('passport_series', '')
+    passport_number = request.data.get('passport_number', '')
+    jshshir = request.data.get('jshshir', '')
+    birth_date = request.data.get('birth_date') or None
+    profile_picture = request.FILES.get('profile_picture')
+    
+    if not first_name or not last_name:
+        return Response({"detail": "Ism va Familiya majburiy."}, status=status.HTTP_400_BAD_REQUEST)
+        
+    user.first_name = first_name
+    user.last_name = last_name
+    user.father_name = father_name
+    user.email = email
+    user.passport_series = passport_series.upper()
+    user.passport_number = passport_number
+    user.jshshir = jshshir
+    user.birth_date = birth_date
+    
+    if profile_picture:
+        if user.profile_picture:
+            try:
+                user.profile_picture.delete(save=False)
+            except:
+                pass
+        user.profile_picture = profile_picture
+    user.save()
+    
+    # If student, save StudentProfile fields as well and regenerate certificates
+    if user.role == User.Role.STUDENT:
+        from .models import StudentProfile, Certificate
+        from .utils import generate_pdf_and_qr
+        profile, _ = StudentProfile.objects.get_or_create(user=user)
+        phone_number = request.data.get('phone_number')
+        organization = request.data.get('organization')
+        if phone_number is not None:
+            profile.phone_number = phone_number
+        if organization is not None:
+            profile.organization = organization
+        profile.save()
+        
+        certs = Certificate.objects.filter(student=user)
+        for cert in certs:
+            try:
+                generate_pdf_and_qr(cert)
+            except Exception:
+                pass
+                
+    serializer = UserSerializer(user, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
 def admin_reset_password(request):
     """
     Reset target user's password back to 'ses2026'. (Admin only)

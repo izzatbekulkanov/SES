@@ -7,6 +7,7 @@ from .views import (
     auth_me,
     change_password,
     admin_users,
+    admin_edit_user,
     admin_reset_password,
     admin_teacher_stats,
     teacher_courses,
@@ -39,6 +40,7 @@ urlpatterns = [
     # Admin User management
     path('admin/users/', admin_users, name='admin_users'),
     path('admin/users/<int:user_id>/delete/', admin_delete_user, name='admin_delete_user'),
+    path('admin/users/<int:user_id>/edit/', admin_edit_user, name='admin_edit_user'),
     path('admin/reset-password/', admin_reset_password, name='admin_reset_password'),
     path('admin/teacher-stats/', admin_teacher_stats, name='admin_teacher_stats'),
     path('admin/certificates/', admin_all_certificates, name='admin_all_certificates'),
